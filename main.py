@@ -79,24 +79,24 @@ async def tunniplaan(ctx):
             
             sample_lessons = {
                 'Monday': [
-                    {'time': '8:30 - 10:00', 'subject': 'Programming Basics', 'room': 'A401', 'teacher': 'Anna Karutina'},
-                    {'time': '10:15 - 11:45', 'subject': 'Digital Technology', 'room': 'A406', 'teacher': 'Evely Vutt'},
+                    {'time': '8:30 - 10:00', 'subject': 'Sissejuhatus IT-valdkonda', 'room': 'A401', 'teacher': 'Mihhail Karutin'},
+                    {'time': '10:15 - 11:45', 'subject': 'Digitehnoloogia', 'room': 'A406', 'teacher': 'Evely Vutt'},
                 ],
                 'Tuesday': [
-                    {'time': '8:30 - 10:00', 'subject': 'IT Introduction', 'room': 'A401', 'teacher': 'Mihhail Karutin'},
-                    {'time': '11:55 - 14:00', 'subject': 'Life Skills', 'room': 'A409', 'teacher': 'Margus Treumuth'},
+                    {'time': '8:30 - 10:00', 'subject': 'Sissejuhatus IT-valdkonda', 'room': 'A401', 'teacher': 'Mihhail Karutin'},
+                    {'time': '11:55 - 14:00', 'subject': 'Oskused tööks ja eluks', 'room': 'A409', 'teacher': 'Margus Treumuth'},
                 ],
                 'Wednesday': [
-                    {'time': '8:30 - 10:00', 'subject': 'Mathematics Review', 'room': 'A409', 'teacher': 'Math Teacher'},
-                    {'time': '10:15 - 11:45', 'subject': 'Estonian Language', 'room': 'A312', 'teacher': 'Aile Laats'},
+                    {'time': '8:30 - 10:00', 'subject': 'Programmeerimise alused', 'room': 'A138', 'teacher': 'Margus Treumuth'},
+                    {'time': '10:15 - 11:45', 'subject': 'Üldainete kordamine', 'room': 'A312', 'teacher': 'Aile Laats'},
                 ],
                 'Thursday': [
-                    {'time': '8:30 - 10:00', 'subject': 'Programming Group 2', 'room': 'A138', 'teacher': 'Margus Treumuth'},
-                    {'time': '14:10 - 15:40', 'subject': 'General Subjects', 'room': 'A409', 'teacher': 'Various'},
+                    {'time': '8:30 - 10:00', 'subject': 'Programmeerimise alused', 'room': 'A138', 'teacher': 'Margus Treumuth'},
+                    {'time': '14:10 - 15:40', 'subject': 'Üldainete kordamine', 'room': 'A409', 'teacher': 'Matemaatika'},
                 ],
                 'Friday': [
-                    {'time': '8:30 - 10:00', 'subject': 'IT Introduction Group 2', 'room': 'A403', 'teacher': 'Anna Karutina'},
-                    {'time': '10:15 - 11:45', 'subject': 'Digital Technology R1/R2', 'room': 'A406', 'teacher': 'Evely Vutt'},
+                    {'time': '8:30 - 10:00', 'subject': 'Sissejuhatus IT-valdkonda', 'room': 'A403', 'teacher': 'Anna Karutina'},
+                    {'time': '10:15 - 11:45', 'subject': 'Digitehnoloogia', 'room': 'A406', 'teacher': 'Evely Vutt'},
                 ]
             }
             
@@ -109,15 +109,24 @@ async def tunniplaan(ctx):
             
             for day, lessons in sample_lessons.items():
                 if lessons:
-                    day_text = ""
+                    # Create a clean table format
+                    day_text = "```\n"
+                    day_text += f"{'Time':<12} {'Subject':<25} {'Room':<8} {'Teacher':<20}\n"
+                    day_text += f"{'-'*12} {'-'*25} {'-'*8} {'-'*20}\n"
+                    
                     for lesson in lessons:
-                        day_text += f"🕐 **{lesson['time']}**\n"
-                        day_text += f"• {lesson['subject']} 📍 {lesson['room']} 👨‍🏫 {lesson['teacher']}\n\n"
+                        time = lesson['time']
+                        subject = lesson['subject'][:24]  # Limit subject length
+                        room = lesson['room']
+                        teacher = lesson['teacher'][:19]  # Limit teacher length
+                        day_text += f"{time:<12} {subject:<25} {room:<8} {teacher:<20}\n"
+                    
+                    day_text += "```"
                     
                     embed.add_field(
                         name=f"📅 {day}",
                         value=day_text,
-                        inline=True
+                        inline=False
                     )
             
             embed.set_footer(text="Source: voco.ee (sample data)")
@@ -147,15 +156,24 @@ async def tunniplaan(ctx):
         
         for day, day_lessons in weekly_lessons.items():
             if day_lessons:
-                day_text = ""
+                # Create a clean table format
+                day_text = "```\n"
+                day_text += f"{'Time':<12} {'Subject':<25} {'Room':<8} {'Teacher':<20}\n"
+                day_text += f"{'-'*12} {'-'*25} {'-'*8} {'-'*20}\n"
+                
                 for lesson in day_lessons:
-                    day_text += f"🕐 **{lesson['time']}**\n"
-                    day_text += f"• {lesson['subject']} 📍 {lesson['room']} 👨‍🏫 {lesson['teacher']}\n\n"
+                    time = lesson['time']
+                    subject = lesson['subject'][:24]  # Limit subject length
+                    room = lesson['room']
+                    teacher = lesson['teacher'][:19]  # Limit teacher length
+                    day_text += f"{time:<12} {subject:<25} {room:<8} {teacher:<20}\n"
+                
+                day_text += "```"
                 
                 embed.add_field(
                     name=f"📅 {day}",
                     value=day_text,
-                    inline=True
+                    inline=False
                 )
         
         embed.set_footer(text="Source: voco.ee")
