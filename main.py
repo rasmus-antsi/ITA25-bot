@@ -77,13 +77,9 @@ async def info(ctx, *, message=None):
         # Send each attachment
         for attachment in ctx.message.attachments:
             await info_channel.send(file=await attachment.to_file())
-        
-        # If there's also text, send it
-        if message:
-            await info_channel.send(message)
     else:
-        # If no images, send text with @everyone ping
-        await info_channel.send(f"@everyone {message}")
+        # If no images, send text with @everyone ping and attribution
+        await info_channel.send(f"@everyone {message} by {ctx.author.display_name}")
     
     # Add another separator line
     await info_channel.send("─" * 50)
