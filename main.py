@@ -32,12 +32,16 @@ async def tunniplaan(ctx):
         import concurrent.futures
         
         with concurrent.futures.ThreadPoolExecutor() as executor:
-            result = await asyncio.get_event_loop().run_in_executor(executor, scrape_internal_timetable)
+            # Add a 60-second timeout to prevent hanging
+            result = await asyncio.wait_for(
+                asyncio.get_event_loop().run_in_executor(executor, scrape_internal_timetable),
+                timeout=60.0
+            )
         
         if not result['success']:
             await ctx.send(f"❌ Error: {result['error']}")
             return
-        
+            
         weekly_lessons = result['lessons']
         week_range = result['week_range']
         source = result['source']
@@ -73,6 +77,8 @@ async def tunniplaan(ctx):
         
         await ctx.send(embed=embed)
         
+    except asyncio.TimeoutError:
+        await ctx.send("⏰ Error: Scraper timed out after 60 seconds. The website might be slow or unresponsive.")
     except Exception as e:
         await ctx.send(f"❌ Error fetching lessons: {str(e)}")
 

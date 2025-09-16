@@ -22,15 +22,6 @@ load_dotenv()
 
 def scrape_internal_timetable():
     """Scrape the internal timetable from siseveeb.voco.ee using Selenium"""
-    import signal
-    
-    def timeout_handler(signum, frame):
-        raise TimeoutError("Scraper timed out")
-    
-    # Set a 60-second timeout
-    signal.signal(signal.SIGALRM, timeout_handler)
-    signal.alarm(60)
-    
     try:
         # Get credentials from environment variables
         username = os.getenv("VOCO_USERNAME")
@@ -261,11 +252,9 @@ def scrape_internal_timetable():
             }
             
         finally:
-            signal.alarm(0)  # Cancel the alarm
             driver.quit()
         
     except Exception as e:
-        signal.alarm(0)  # Cancel the alarm
         return {
             'success': False,
             'error': f'Scraping error: {str(e)}'
