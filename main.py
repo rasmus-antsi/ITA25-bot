@@ -55,26 +55,30 @@ async def info(ctx, *, message=None):
         await ctx.send("❌ You don't have permission to send messages in the info channel.")
         return
     
-    # If no message provided, ask for one
-    if not message:
-        await ctx.send("❌ Please provide a message! Usage: `!info Your message here`")
+    # If no message and no attachments, ask for one
+    if not message and not ctx.message.attachments:
+        await ctx.send("❌ Please provide a message or image! Usage: `!info Your message here` or attach an image")
         return
     
-    # Send the message with @everyone ping to the info channel
-    await info_channel.send("@everyone")
-    
-    # Create embed with sender info
-    embed = discord.Embed(
-        description=message,
-        color=0x00ff00
-    )
-    embed.set_author(
-        name=f"From: {ctx.author.display_name}",
-        icon_url=ctx.author.display_avatar.url
-    )
-    embed.set_footer(text="ITA25 Bot")
-    
-    await info_channel.send(embed=embed)
+    # Check if there are attachments (images)
+    if ctx.message.attachments:
+        # If there are images, send them with @everyone ping
+        await info_channel.send("@everyone")
+        
+        # Send each attachment
+        for attachment in ctx.message.attachments:
+            await info_channel.send(file=await attachment.to_file())
+        
+        # Send the "by [user]" message
+        await info_channel.send(f"by {ctx.author.display_name}")
+        
+        # If there's also text, send it
+        if message:
+            await info_channel.send(message)
+    else:
+        # If no images, send text with @everyone ping
+        await info_channel.send(f"@everyone {message}")
+        await info_channel.send(f"by {ctx.author.display_name}")
     
     # Confirm to the user
     await ctx.send(f"✅ Info sent to {info_channel.mention}")
