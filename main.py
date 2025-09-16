@@ -31,6 +31,38 @@ async def on_ready():
 async def hello(ctx):
     await ctx.send("Hello! I'm alive inside Docker 🐳")
 
+@bot.command()
+async def debug_scraper(ctx):
+    """Debug command to see what the scraper finds"""
+    try:
+        await ctx.send("🔍 Debugging scraper...")
+        
+        result = scrape_timetable()
+        
+        if not result['success']:
+            await ctx.send(f"❌ Error: {result['error']}")
+            return
+        
+        lessons = result['lessons']
+        
+        debug_msg = f"**Debug Info:**\n"
+        debug_msg += f"Found {len(lessons)} lessons\n\n"
+        
+        for i, lesson in enumerate(lessons, 1):
+            debug_msg += f"**{i}.** {lesson['time']}\n"
+            debug_msg += f"   Subject: {lesson['subject']}\n"
+            debug_msg += f"   Room: {lesson['room']}\n"
+            debug_msg += f"   Teacher: {lesson['teacher']}\n\n"
+        
+        # Split message if too long
+        if len(debug_msg) > 2000:
+            debug_msg = debug_msg[:1900] + "...\n(truncated)"
+        
+        await ctx.send(debug_msg)
+        
+    except Exception as e:
+        await ctx.send(f"❌ Debug error: {str(e)}")
+
 def scrape_timetable():
     """Scrape the actual timetable from voco.ee using Selenium"""
     try:
@@ -95,20 +127,27 @@ def scrape_timetable():
             
             # If no events found, try a different approach
             if len(today_events) == 0:
-                # Since the calendar structure is complex, let's implement a simple filter
+                # Since the calendar structure is complex, let's implement a more targeted filter
                 # to show only lessons that are likely for today
                 
-                # Filter out lessons that are clearly not for today
+                # Get today's day name in Estonian for better filtering
+                estonian_days = {
+                    0: 'esmaspäev', 1: 'teisipäev', 2: 'kolmapäev', 3: 'neljapäev',
+                    4: 'reede', 5: 'laupäev', 6: 'pühapäev'
+                }
+                today_estonian = estonian_days[today_weekday]
+                
+                # Filter events more carefully
                 for event in all_events:
                     try:
                         event_text = event.text
                         
                         # Skip lessons that are clearly from other days or not relevant
                         skip_patterns = [
-                            'Sissejuhatus IT-valdkonda_Rühm 1',  # This specific lesson you mentioned
                             'Tegevuspäev',  # Activity day events
-                            'Sissejuhatus IT_valdkonda_Rühm 2',  # Another group lesson
-                            'Sissejuhatus IT_valdkonda_Rühm 1; Sissejuhatus IT_valdkonda_Rühm 2',  # Combined groups
+                            'Sissejuhatus IT-valdkonda_Rühm 1',  # Specific group lessons that might be wrong day
+                            'Sissejuhatus IT_valdkonda_Rühm 2',
+                            'Sissejuhatus IT_valdkonda_Rühm 1; Sissejuhatus IT_valdkonda_Rühm 2',
                         ]
                         
                         should_skip = False
@@ -117,8 +156,14 @@ def scrape_timetable():
                                 should_skip = True
                                 break
                         
+                        # Only include events that seem relevant for today
                         if not should_skip:
-                            today_events.append(event)
+                            # Look for events that contain typical lesson patterns
+                            if any(keyword in event_text.lower() for keyword in [
+                                'programmeerimise', 'digitehnoloogia', 'kultuur', 'oskused', 
+                                'matemaatika', 'eesti keel', 'üldainete'
+                            ]):
+                                today_events.append(event)
                     except:
                         continue
                 
