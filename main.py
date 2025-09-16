@@ -27,7 +27,12 @@ async def tunniplaan(ctx):
     try:
         await ctx.send("🔐 Fetching lessons from internal portal...")
         
-        result = scrape_internal_timetable()
+        # Run the scraper in a thread to avoid blocking the event loop
+        import asyncio
+        import concurrent.futures
+        
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            result = await asyncio.get_event_loop().run_in_executor(executor, scrape_internal_timetable)
         
         if not result['success']:
             await ctx.send(f"❌ Error: {result['error']}")
