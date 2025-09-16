@@ -2,3 +2,4 @@ discord==2.3.2
 discord.py==2.6.3
 requests
 beautifulsoup4
+python-dotenv

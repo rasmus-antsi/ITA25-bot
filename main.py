@@ -4,6 +4,10 @@ from discord.ext import commands
 import requests
 from bs4 import BeautifulSoup
 from datetime import datetime
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 TOKEN = os.getenv("DISCORD_TOKEN")
 
