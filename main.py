@@ -3,7 +3,7 @@ import discord
 from discord.ext import commands
 import requests
 from bs4 import BeautifulSoup
-from datetime import datetime
+from datetime import datetime, timedelta
 from dotenv import load_dotenv
 import re
 import json
@@ -351,59 +351,242 @@ def scrape_timetable():
     except Exception as e:
         return {'success': False, 'error': f'Scraping error: {str(e)}'}
 
+def scrape_weekly_timetable():
+    """Scrape the entire week's timetable from voco.ee using Selenium"""
+    try:
+        # Set up Chrome options for headless browsing
+        chrome_options = Options()
+        chrome_options.add_argument("--headless")
+        chrome_options.add_argument("--no-sandbox")
+        chrome_options.add_argument("--disable-dev-shm-usage")
+        chrome_options.add_argument("--disable-gpu")
+        chrome_options.add_argument("--window-size=1920,1080")
+        chrome_options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
+        
+        # Initialize the driver
+        driver = webdriver.Chrome(options=chrome_options)
+        
+        try:
+            # Navigate to the timetable page
+            url = "https://voco.ee/tunniplaan/?course=2078"
+            driver.get(url)
+            
+            # Wait for the page to load and course selector to appear
+            wait = WebDriverWait(driver, 20)
+            wait.until(EC.presence_of_element_located((By.ID, "course_select")))
+            
+            # Wait for course options to be populated
+            time.sleep(3)
+            
+            # Select the course (2078)
+            try:
+                course_select = driver.find_element(By.ID, "course_select")
+                course_select.click()
+                time.sleep(1)
+                
+                # Look for the course option with value 2078
+                course_option = driver.find_element(By.CSS_SELECTOR, "option[value='2078']")
+                course_option.click()
+                time.sleep(2)
+                
+                # Wait for calendar to load
+                wait.until(EC.presence_of_element_located((By.CLASS_NAME, "fc")))
+                time.sleep(3)  # Additional wait for events to load
+                
+            except Exception as e:
+                print(f"Error selecting course: {e}")
+                # Continue anyway, maybe the course is already selected
+            
+            # Get all events from the calendar
+            all_events = []
+            event_selectors = [
+                ".fc-event",
+                ".fc-event-container .fc-event", 
+                ".fc-content .fc-event",
+                "[class*='fc-event']"
+            ]
+            
+            for selector in event_selectors:
+                events = driver.find_elements(By.CSS_SELECTOR, selector)
+                if events:
+                    all_events = events
+                    print(f"Found {len(events)} events using selector: {selector}")
+                    break
+            
+            if not all_events:
+                print("No events found with any selector")
+                return {'success': False, 'error': 'No events found in calendar'}
+            
+            # Parse events into lessons grouped by day
+            weekly_lessons = {}
+            day_names = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+            
+            for event in all_events:
+                try:
+                    # Get event details
+                    title = ""
+                    time_text = ""
+                    
+                    try:
+                        title = event.find_element(By.CSS_SELECTOR, ".fc-title").text
+                    except:
+                        try:
+                            title = event.find_element(By.CSS_SELECTOR, ".fc-content").text
+                        except:
+                            title = event.text
+                    
+                    try:
+                        time_element = event.find_element(By.CSS_SELECTOR, ".fc-time")
+                        time_text = time_element.text
+                    except:
+                        time_text = "Unknown time"
+                    
+                    # Try to get the day from data-start attribute
+                    event_start = event.get_attribute("data-start")
+                    day_name = "Unknown Day"
+                    
+                    if event_start:
+                        try:
+                            event_date = datetime.fromisoformat(event_start.replace('Z', '+00:00'))
+                            day_name = day_names[event_date.weekday()]
+                        except:
+                            pass
+                    
+                    # Parse the event data
+                    room = ""
+                    teacher = ""
+                    subject = title
+                    
+                    # Extract room number
+                    room_patterns = [
+                        r'Kopli A - (A\d+)',  # Kopli A - A401
+                        r'\(A\d+\)',          # (A401)
+                        r'A\d+',              # A401
+                        r'Kopli A',           # Just "Kopli A" without room number
+                    ]
+                    
+                    for pattern in room_patterns:
+                        room_match = re.search(pattern, title)
+                        if room_match:
+                            room = room_match.group(1) if room_match.groups() else room_match.group(0)
+                            break
+                    
+                    # Extract teacher names
+                    teacher_patterns = [
+                        r'([A-Z][a-z]+ [A-Z][a-z]+)',  # First Last
+                        r'([A-Z][a-z]+ [A-Z][a-z]+ [A-Z][a-z]+)',  # First Middle Last
+                    ]
+                    
+                    for pattern in teacher_patterns:
+                        teacher_match = re.search(pattern, title)
+                        if teacher_match:
+                            teacher = teacher_match.group(1)
+                            break
+                    
+                    # Clean up subject name
+                    subject = re.sub(r'Kopli A.*', '', subject).strip()
+                    subject = re.sub(r'\([^)]*\)', '', subject).strip()
+                    subject = re.sub(r'[A-Z][a-z]+ [A-Z][a-z]+.*', '', subject).strip()
+                    subject = re.sub(r'\s+', ' ', subject).strip()
+                    
+                    lesson = {
+                        'time': time_text,
+                        'subject': subject,
+                        'room': room,
+                        'teacher': teacher
+                    }
+                    
+                    # Add to weekly lessons
+                    if day_name not in weekly_lessons:
+                        weekly_lessons[day_name] = []
+                    weekly_lessons[day_name].append(lesson)
+                        
+                except Exception as e:
+                    print(f"Error parsing event: {e}")
+                    continue
+            
+            # Get week range
+            today = datetime.now()
+            week_start = today - timedelta(days=today.weekday())
+            week_end = week_start + timedelta(days=6)
+            week_range = f"{week_start.strftime('%d.%m')} - {week_end.strftime('%d.%m.%Y')}"
+            
+            return {
+                'success': True,
+                'lessons': weekly_lessons,
+                'week_range': week_range,
+                'source': 'Live data from voco.ee'
+            }
+            
+        finally:
+            driver.quit()
+            
+    except Exception as e:
+        return {'success': False, 'error': f'Scraping error: {str(e)}'}
+
 @bot.command()
 async def tunniplaan(ctx):
     try:
-        await ctx.send("📚 Fetching today's lessons...")
+        await ctx.send("📚 Fetching this week's lessons...")
         
-        result = scrape_timetable()
+        result = scrape_weekly_timetable()
         
         if not result['success']:
             await ctx.send(f"❌ Error: {result['error']}")
             return
         
-        lessons = result['lessons']
-        date = result['date']
+        weekly_lessons = result['lessons']
         source = result['source']
         
         # Create embed
         embed = discord.Embed(
-            title=f"📚 Today's Lessons - {date}",
+            title=f"📚 This Week's Lessons - {result['week_range']}",
             color=0x00ff00
         )
         
-        if lessons:
-            # Group lessons by time slot
-            lessons_by_time = {}
-            for lesson in lessons:
-                time_slot = lesson['time']
-                if time_slot not in lessons_by_time:
-                    lessons_by_time[time_slot] = []
-                lessons_by_time[time_slot].append(lesson)
-            
-            # Display all lessons for each time slot
-            for time_slot, time_lessons in lessons_by_time.items():
-                lesson_texts = []
-                for lesson in time_lessons:
-                    teacher_text = f"👨‍🏫 {lesson['teacher']}" if lesson['teacher'] else ""
-                    room_text = f"📍 {lesson['room']}" if lesson['room'] else ""
+        if weekly_lessons:
+            # Group lessons by day
+            for day, day_lessons in weekly_lessons.items():
+                if day_lessons:
+                    # Group lessons by time slot for this day
+                    lessons_by_time = {}
+                    for lesson in day_lessons:
+                        time_slot = lesson['time']
+                        if time_slot not in lessons_by_time:
+                            lessons_by_time[time_slot] = []
+                        lessons_by_time[time_slot].append(lesson)
                     
-                    value_parts = [f"**{lesson['subject']}**"]
-                    if room_text:
-                        value_parts.append(room_text)
-                    if teacher_text:
-                        value_parts.append(teacher_text)
+                    # Create day section
+                    day_text = f"**{day}**\n"
                     
-                    lesson_texts.append("\n".join(value_parts))
-                
-                embed.add_field(
-                    name=f"🕐 {time_slot}",
-                    value="\n\n".join(lesson_texts),
-                    inline=False
-                )
+                    # Add lessons for each time slot
+                    for time_slot, time_lessons in sorted(lessons_by_time.items()):
+                        day_text += f"🕐 **{time_slot}**\n"
+                        for lesson in time_lessons:
+                            teacher_text = f"👨‍🏫 {lesson['teacher']}" if lesson['teacher'] else ""
+                            room_text = f"📍 {lesson['room']}" if lesson['room'] else ""
+                            
+                            lesson_line = f"• {lesson['subject']}"
+                            if room_text:
+                                lesson_line += f" {room_text}"
+                            if teacher_text:
+                                lesson_line += f" {teacher_text}"
+                            
+                            day_text += f"{lesson_line}\n"
+                        day_text += "\n"
+                    
+                    # Add day to embed (limit field length)
+                    if len(day_text) > 1024:
+                        day_text = day_text[:1020] + "..."
+                    
+                    embed.add_field(
+                        name=f"📅 {day}",
+                        value=day_text,
+                        inline=True
+                    )
         else:
             embed.add_field(
-                name="No lessons today", 
+                name="No lessons this week", 
                 value="Enjoy your free time! 🎉", 
                 inline=False
             )
