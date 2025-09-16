@@ -60,11 +60,36 @@ def setup_tunniplaan_commands(bot):
                     
                     day_text += "```"
                     
-                    embed.add_field(
-                        name=f"📅 {day}",
-                        value=day_text,
-                        inline=False
-                    )
+                    # Split into multiple fields if too long
+                    if len(day_text) > 1024:
+                        # Split lessons into chunks of 3 lessons each
+                        lesson_chunks = [day_lessons[i:i+3] for i in range(0, len(day_lessons), 3)]
+                        for i, chunk in enumerate(lesson_chunks):
+                            chunk_text = "```\n"
+                            chunk_text += f"{'Time':<12} {'Subject':<25} {'Room':<8} {'Teacher':<15}\n"
+                            chunk_text += f"{'-'*12} {'-'*25} {'-'*8} {'-'*15}\n"
+                            
+                            for lesson in chunk:
+                                time = lesson.get('time', 'Unknown')[:11]
+                                subject = lesson.get('subject', 'Unknown')[:24]
+                                room = lesson.get('room', 'N/A')[:7]
+                                teacher = lesson.get('teacher', 'N/A')[:14]
+                                chunk_text += f"{time:<12} {subject:<25} {room:<8} {teacher:<15}\n"
+                            
+                            chunk_text += "```"
+                            
+                            field_name = f"📅 {day}" if i == 0 else f"📅 {day} (cont.)"
+                            embed.add_field(
+                                name=field_name,
+                                value=chunk_text,
+                                inline=False
+                            )
+                    else:
+                        embed.add_field(
+                            name=f"📅 {day}",
+                            value=day_text,
+                            inline=False
+                        )
             
             if not lessons or not any(lessons.values()):
                 embed.add_field(
