@@ -217,27 +217,40 @@ def scrape_timetable():
                                     today_events.append(event)
                                     print(f"Added event for today: {event.text[:50]}...")
                                     continue
-                            except:
+                                else:
+                                    print(f"Skipping event from {event_date.date()}: {event.text[:50]}...")
+                                    continue
+                            except Exception as e:
+                                print(f"Error parsing date {event_start}: {e}")
                                 pass
                         
-                        # If no data-start attribute, try to determine by position
-                        # This is a fallback - we'll include all events and let the user decide
+                        # If no data-start attribute, be more conservative
+                        # Only include events that we're confident are for today
                         event_text = event.text
                         if event_text and event_text.strip():
-                            # Only skip obviously non-lesson events
+                            # Skip events that are clearly from other days
                             skip_patterns = [
                                 'Tegevuspäev',  # Activity day events
+                                'Sissejuhatus IT-valdkonda_Rühm 1',  # This is typically Monday
+                                'Kultuur ja suhtlemine',  # This seems to be from another day
                             ]
                             
                             should_skip = False
                             for pattern in skip_patterns:
                                 if pattern in event_text:
                                     should_skip = True
+                                    print(f"Skipping event with pattern '{pattern}': {event_text[:50]}...")
                                     break
                             
                             if not should_skip:
-                                today_events.append(event)
-                                print(f"Added event (fallback): {event_text[:50]}...")
+                                # Only include if it looks like a typical lesson
+                                if any(keyword in event_text.lower() for keyword in [
+                                    'digitehnoloogia', 'oskused', 'üldainete', 'programmeerimise'
+                                ]):
+                                    today_events.append(event)
+                                    print(f"Added event (fallback): {event_text[:50]}...")
+                                else:
+                                    print(f"Skipping uncertain event: {event_text[:50]}...")
                                 
                     except Exception as e:
                         print(f"Error processing event: {e}")
