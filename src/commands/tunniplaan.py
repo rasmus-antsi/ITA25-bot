@@ -1,7 +1,7 @@
 import discord
 import asyncio
 import concurrent.futures
-from scraper.voco_scraper import scrape_timetable
+from ..scraper.voco_scraper import scrape_timetable
 
 def setup_tunniplaan_commands(bot):
     """Setup timetable-related commands"""
