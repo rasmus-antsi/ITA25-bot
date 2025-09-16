@@ -53,6 +53,7 @@ def scrape_internal_timetable():
         # Get credentials from environment variables
         username = os.getenv("VOCO_USERNAME")
         password = os.getenv("VOCO_PASSWORD")
+        two_factor_code = os.getenv("VOCO_2FA_CODE")
         
         if not username or not password:
             return {
@@ -94,6 +95,23 @@ def scrape_internal_timetable():
                 password_field.clear()
                 username_field.send_keys(username)
                 password_field.send_keys(password)
+                
+                # Check if there's a two-level password field (2FA)
+                try:
+                    two_level_field = driver.find_element(By.NAME, "two_level_password")
+                    print("🔍 Two-level password field detected - this requires 2FA")
+                    
+                    if two_factor_code:
+                        print("🔐 2FA code provided, entering it...")
+                        two_level_field.clear()
+                        two_level_field.send_keys(two_factor_code)
+                    else:
+                        return {
+                            'success': False,
+                            'error': 'Two-level authentication required. Please provide the 2FA code in the .env file as VOCO_2FA_CODE'
+                        }
+                except:
+                    print("✅ No two-level password field found")
                 
                 # Find and click login button
                 login_button = driver.find_element(By.ID, "form_submit")
