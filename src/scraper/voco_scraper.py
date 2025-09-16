@@ -8,10 +8,15 @@ from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
 import re
 import time
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 
 def scrape_timetable(period="daily"):
     """
-    Scrape timetable from VOCO website
+    Scrape timetable from VOCO website using Selenium
     
     Args:
         period (str): "daily" or "weekly"
@@ -19,52 +24,122 @@ def scrape_timetable(period="daily"):
     Returns:
         dict: Scraped timetable data
     """
+    driver = None
     try:
-        # VOCO timetable URL
-        url = "https://voco.ee/tunniplaan/?course=2078"
-        
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-        }
-        
         print(f"🔍 Scraping VOCO timetable ({period})...")
         
-        # Make request to VOCO
-        response = requests.get(url, headers=headers, timeout=10)
-        response.raise_for_status()
+        # Setup Chrome options for headless browsing
+        chrome_options = Options()
+        chrome_options.add_argument("--headless")
+        chrome_options.add_argument("--no-sandbox")
+        chrome_options.add_argument("--disable-dev-shm-usage")
+        chrome_options.add_argument("--disable-gpu")
+        chrome_options.add_argument("--window-size=1920,1080")
+        chrome_options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
         
-        soup = BeautifulSoup(response.content, 'html.parser')
+        # Initialize the driver
+        driver = webdriver.Chrome(options=chrome_options)
         
-        # Look for calendar events
+        # Navigate to the timetable page
+        url = "https://voco.ee/tunniplaan/?course=2078"
+        print(f"📡 URL: {url}")
+        driver.get(url)
+        
+        # Wait for the page to load
+        wait = WebDriverWait(driver, 10)
+        
+        # Wait for the timetable selector to appear
+        try:
+            # Look for the timetable selector dropdown
+            timetable_selector = wait.until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, "select, .timetable-selector, [class*='select']"))
+            )
+            print("✅ Found timetable selector")
+            
+            # Try to find ITA25 option
+            ita25_options = driver.find_elements(By.XPATH, "//option[contains(text(), 'ITA25') or contains(text(), 'ita25')]")
+            if ita25_options:
+                print("✅ Found ITA25 option")
+                ita25_options[0].click()
+            else:
+                # Look for any option that might be ITA25
+                all_options = driver.find_elements(By.TAG_NAME, "option")
+                print(f"📋 Available options: {[opt.text for opt in all_options]}")
+                
+                # Try to find the most likely ITA25 option
+                for option in all_options:
+                    if '25' in option.text and ('ITA' in option.text.upper() or 'IT' in option.text.upper()):
+                        print(f"🎯 Selecting option: {option.text}")
+                        option.click()
+                        break
+                else:
+                    print("⚠️ No ITA25 option found, trying first available option")
+                    if all_options:
+                        all_options[0].click()
+            
+            # Wait for the timetable to load
+            time.sleep(3)
+            
+        except Exception as e:
+            print(f"⚠️ Could not find timetable selector: {e}")
+            # Continue anyway, maybe the timetable is already loaded
+        
+        # Now try to find the calendar events
         lessons = []
         
-        # Try to find FullCalendar events in script tags
-        script_tags = soup.find_all('script')
-        for script in script_tags:
-            if script.string and 'events' in script.string.lower():
-                # Look for events array in JavaScript
-                events_match = re.search(r'events:\s*\[(.*?)\]', script.string, re.DOTALL)
-                if events_match:
-                    events_text = events_match.group(1)
-                    # Parse individual events
-                    event_matches = re.findall(r'\{[^}]*\}', events_text)
-                    for event_match in event_matches:
-                        # Extract event data
-                        title_match = re.search(r'title:\s*["\']([^"\']*)["\']', event_match)
-                        start_match = re.search(r'start:\s*["\']([^"\']*)["\']', event_match)
+        # Look for FullCalendar events
+        try:
+            # Wait for calendar to load
+            calendar_element = wait.until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, ".fc-view, .calendar, [class*='calendar']"))
+            )
+            print("✅ Found calendar element")
+            
+            # Look for events in the calendar
+            event_elements = driver.find_elements(By.CSS_SELECTOR, ".fc-event, .event, [class*='event']")
+            print(f"📅 Found {len(event_elements)} event elements")
+            
+            for event in event_elements:
+                try:
+                    title = event.text.strip()
+                    if title:
+                        # Try to get time information
+                        time_element = event.find_element(By.CSS_SELECTOR, ".fc-time, .time, [class*='time']")
+                        time_text = time_element.text.strip() if time_element else "Unknown"
                         
-                        if title_match and start_match:
-                            title = title_match.group(1)
-                            start_time = start_match.group(1)
-                            
-                            # Parse the lesson data
-                            lesson = parse_lesson_data(title, start_time)
-                            if lesson:
-                                lessons.append(lesson)
+                        lesson = parse_lesson_data(title, time_text)
+                        if lesson:
+                            lessons.append(lesson)
+                except:
+                    continue
+                    
+        except Exception as e:
+            print(f"⚠️ Could not find calendar events: {e}")
         
-        # If no events found in scripts, try to find table data
+        # If no events found, try to find table data
         if not lessons:
-            lessons = scrape_table_data(soup)
+            print("🔍 Trying to find table data...")
+            table_elements = driver.find_elements(By.TAG_NAME, "table")
+            for table in table_elements:
+                rows = table.find_elements(By.TAG_NAME, "tr")
+                for row in rows[1:]:  # Skip header
+                    cells = row.find_elements(By.TAG_NAME, "td")
+                    if len(cells) >= 3:
+                        time_text = cells[0].text.strip()
+                        subject_text = cells[1].text.strip()
+                        room_text = cells[2].text.strip() if len(cells) > 2 else "Unknown"
+                        teacher_text = cells[3].text.strip() if len(cells) > 3 else "Unknown"
+                        
+                        if re.match(r'\d{1,2}:\d{2}', time_text):
+                            lessons.append({
+                                'time': time_text,
+                                'subject': subject_text,
+                                'room': room_text,
+                                'teacher': teacher_text,
+                                'raw_text': f"{time_text} - {subject_text} - {room_text} - {teacher_text}"
+                            })
+        
+        print(f"📚 Found {len(lessons)} lessons")
         
         # Filter lessons based on period
         if period == "daily":
@@ -97,6 +172,9 @@ def scrape_timetable(period="daily"):
             'success': False,
             'error': f'Scraping error: {str(e)}'
         }
+    finally:
+        if driver:
+            driver.quit()
 
 def parse_lesson_data(title, start_time):
     """Parse lesson data from title and start time"""
