@@ -7,7 +7,7 @@ set -e
 cd "$(dirname "$0")"
 
 echo "📦 Pulling latest changes from Git..."
-git pull origin main
+git pull
 
 echo "🐳 Rebuilding Docker image..."
 docker build -t ita25-bot .
