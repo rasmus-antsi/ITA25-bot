@@ -20,6 +20,33 @@ import time
 # Load environment variables
 load_dotenv()
 
+def handle_additional_auth(driver, username, password):
+    """Handle additional authentication steps like 2FA"""
+    try:
+        # Check if there are additional auth fields
+        auth_fields = driver.find_elements(By.CSS_SELECTOR, "input[type='text'], input[type='password'], input[type='number']")
+        print(f"🔍 Found {len(auth_fields)} input fields for additional auth")
+        
+        # Look for 2FA code field
+        for field in auth_fields:
+            field_name = field.get_attribute('name') or field.get_attribute('id') or ''
+            field_placeholder = field.get_attribute('placeholder') or ''
+            print(f"  Field: {field_name} - {field_placeholder}")
+            
+            # Check if this looks like a 2FA field
+            if any(keyword in (field_name + field_placeholder).lower() for keyword in ['code', 'token', '2fa', 'verification', 'otp']):
+                print("🔍 2FA field detected - this requires manual intervention")
+                return {
+                    'success': False,
+                    'error': '2FA authentication required. Please disable 2FA or use a different authentication method.'
+                }
+        
+        return {'success': True, 'message': 'No additional auth required'}
+        
+    except Exception as e:
+        print(f"⚠️ Error checking additional auth: {e}")
+        return {'success': True, 'message': 'Could not check additional auth'}
+
 def scrape_internal_timetable():
     """Scrape the internal timetable from siseveeb.voco.ee using Selenium"""
     try:
@@ -78,6 +105,22 @@ def scrape_internal_timetable():
                 # Check if we're still on login page (authentication failed)
                 if "login" in driver.current_url.lower() or "autoriseerimine" in driver.page_source.lower():
                     print("❌ Authentication failed - still on login page")
+                    
+                    # Check for error messages or additional auth requirements
+                    error_elements = driver.find_elements(By.CSS_SELECTOR, ".alert, .error, .warning, .text-danger")
+                    if error_elements:
+                        error_text = error_elements[0].text.strip()
+                        print(f"🔍 Error message found: {error_text}")
+                        return {
+                            'success': False,
+                            'error': f'Authentication failed: {error_text}'
+                        }
+                    
+                    # Check for additional authentication requirements
+                    additional_auth = handle_additional_auth(driver, username, password)
+                    if not additional_auth['success']:
+                        return additional_auth
+                    
                     return {
                         'success': False,
                         'error': 'Authentication failed. Please check credentials in .env file'
