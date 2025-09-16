@@ -2,8 +2,8 @@ import os
 import discord
 from discord.ext import commands
 from dotenv import load_dotenv
-from commands.info import setup_info_commands
-from commands.tunniplaan import setup_tunniplaan_commands
+from .commands.info import setup_info_commands
+from .commands.tunniplaan import setup_tunniplaan_commands
 
 # Load environment variables from .env file
 load_dotenv()
