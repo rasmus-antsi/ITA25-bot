@@ -97,21 +97,27 @@ def scrape_internal_timetable():
             print(f"📅 Accessing daily plan: {timetable_url}")
             
             driver.get(timetable_url)
-            time.sleep(10)  # Wait for JavaScript to load
+            time.sleep(5)  # Wait for initial page load
             
-            # Wait for the page to load (shorter timeout)
-            wait = WebDriverWait(driver, 5)
+            # Wait for the dynamic content blocks to load
+            print("⏳ Waiting for dynamic content to load...")
+            wait = WebDriverWait(driver, 15)
             
-            # Try to wait for the daily plan table
+            # Wait for either the daily plan or weekly timetable blocks to load
             try:
-                wait.until(EC.presence_of_element_located((By.XPATH, "//table[contains(., 'Aeg') or contains(., 'Nimetus') or contains(., 'Õpetaja')]")))
-                print("✅ Found daily plan table")
+                # Try to wait for daily plan content
+                wait.until(EC.presence_of_element_located((By.XPATH, "//div[@id='home_page_block_3']//table | //div[@id='home_page_block_4']//table")))
+                print("✅ Found timetable content")
             except:
                 try:
-                    wait.until(EC.presence_of_element_located((By.TAG_NAME, "table")))
-                    print("✅ Found table element")
+                    # Fallback: wait for any table in the home page blocks
+                    wait.until(EC.presence_of_element_located((By.XPATH, "//div[contains(@id, 'home_page_block')]//table")))
+                    print("✅ Found table in home page blocks")
                 except:
-                    print("⚠️ No table elements found, continuing...")
+                    print("⚠️ No timetable tables found, continuing...")
+            
+            # Additional wait for content to fully load
+            time.sleep(3)
             
             # Get the page source after JavaScript execution
             page_source = driver.page_source
@@ -126,50 +132,101 @@ def scrape_internal_timetable():
                 f.write(page_source)
             print("💾 Saved page content to debug_page.html for analysis")
             
-            # Look for various possible timetable structures
+            # Look for timetable data in the home page blocks
             lessons = []
             
-            # Method 1: Look for the daily plan table specifically
-            all_tables = soup.find_all('table')
-            print(f"📊 Found {len(all_tables)} tables")
+            # Method 1: Look for daily plan (home_page_block_3) or weekly timetable (home_page_block_4)
+            daily_plan_block = soup.find('div', {'id': 'home_page_block_3'})
+            weekly_plan_block = soup.find('div', {'id': 'home_page_block_4'})
             
-            for i, table in enumerate(all_tables):
-                print(f"  Table {i+1}: {len(table.find_all('tr'))} rows")
+            print(f"📊 Daily plan block found: {daily_plan_block is not None}")
+            print(f"📊 Weekly plan block found: {weekly_plan_block is not None}")
+            
+            # Check daily plan first
+            if daily_plan_block:
+                print("🔍 Checking daily plan block...")
+                tables = daily_plan_block.find_all('table')
+                print(f"  Found {len(tables)} tables in daily plan")
                 
-                # Check if this table has the daily plan headers
-                header_row = table.find('tr')
-                if header_row:
-                    header_cells = header_row.find_all(['th', 'td'])
-                    header_text = ' '.join([cell.get_text(strip=True) for cell in header_cells])
-                    print(f"    Headers: {header_text}")
+                for i, table in enumerate(tables):
+                    print(f"  Table {i+1}: {len(table.find_all('tr'))} rows")
                     
-                    # Check if this looks like the daily plan table
-                    if any(header in header_text for header in ['Aeg', 'Nimetus', 'Õpetaja', 'Ruum']):
-                        print(f"    ✅ Found daily plan table!")
+                    # Check if this table has lesson data
+                    header_row = table.find('tr')
+                    if header_row:
+                        header_cells = header_row.find_all(['th', 'td'])
+                        header_text = ' '.join([cell.get_text(strip=True) for cell in header_cells])
+                        print(f"    Headers: {header_text}")
                         
-                        rows = table.find_all('tr')[1:]  # Skip header row
-                        for j, row in enumerate(rows):
-                            cells = row.find_all(['td', 'th'])
-                            if len(cells) >= 4:  # Should have time, subject, teacher, room
-                                time_text = cells[0].get_text(strip=True)
-                                subject_text = cells[1].get_text(strip=True)
-                                teacher_text = cells[2].get_text(strip=True)
-                                room_text = cells[3].get_text(strip=True)
-                                
-                                # Only add if it looks like a lesson (has time pattern)
-                                if re.match(r'\d{1,2}:\d{2}', time_text):
-                                    lesson = {
-                                        'time': time_text,
-                                        'subject': subject_text,
-                                        'room': room_text,
-                                        'teacher': teacher_text,
-                                        'raw_text': f"{time_text} - {subject_text} - {teacher_text} - {room_text}"
-                                    }
-                                    lessons.append(lesson)
-                                    print(f"      ✅ Lesson: {lesson['raw_text']}")
-                                else:
-                                    print(f"      ⚠️ Skipped row (no time): {time_text}")
-                        break  # Found the daily plan table, no need to check others
+                        # Check if this looks like a lesson table
+                        if any(header in header_text for header in ['Aeg', 'Nimetus', 'Õpetaja', 'Ruum', 'Tund', 'Aine']):
+                            print(f"    ✅ Found lesson table!")
+                            
+                            rows = table.find_all('tr')[1:]  # Skip header row
+                            for j, row in enumerate(rows):
+                                cells = row.find_all(['td', 'th'])
+                                if len(cells) >= 3:  # Should have at least time, subject, teacher
+                                    time_text = cells[0].get_text(strip=True)
+                                    subject_text = cells[1].get_text(strip=True)
+                                    teacher_text = cells[2].get_text(strip=True) if len(cells) > 2 else ""
+                                    room_text = cells[3].get_text(strip=True) if len(cells) > 3 else ""
+                                    
+                                    # Only add if it looks like a lesson (has time pattern or subject)
+                                    if re.match(r'\d{1,2}:\d{2}', time_text) or subject_text.strip():
+                                        lesson = {
+                                            'time': time_text,
+                                            'subject': subject_text,
+                                            'room': room_text,
+                                            'teacher': teacher_text,
+                                            'raw_text': f"{time_text} - {subject_text} - {teacher_text} - {room_text}"
+                                        }
+                                        lessons.append(lesson)
+                                        print(f"      ✅ Lesson: {lesson['raw_text']}")
+                                    else:
+                                        print(f"      ⚠️ Skipped row: {time_text} | {subject_text}")
+            
+            # Check weekly plan if daily plan didn't have data
+            if not lessons and weekly_plan_block:
+                print("🔍 Checking weekly plan block...")
+                tables = weekly_plan_block.find_all('table')
+                print(f"  Found {len(tables)} tables in weekly plan")
+                
+                for i, table in enumerate(tables):
+                    print(f"  Table {i+1}: {len(table.find_all('tr'))} rows")
+                    
+                    # Check if this table has lesson data
+                    header_row = table.find('tr')
+                    if header_row:
+                        header_cells = header_row.find_all(['th', 'td'])
+                        header_text = ' '.join([cell.get_text(strip=True) for cell in header_cells])
+                        print(f"    Headers: {header_text}")
+                        
+                        # Check if this looks like a lesson table
+                        if any(header in header_text for header in ['Aeg', 'Nimetus', 'Õpetaja', 'Ruum', 'Tund', 'Aine']):
+                            print(f"    ✅ Found lesson table!")
+                            
+                            rows = table.find_all('tr')[1:]  # Skip header row
+                            for j, row in enumerate(rows):
+                                cells = row.find_all(['td', 'th'])
+                                if len(cells) >= 3:  # Should have at least time, subject, teacher
+                                    time_text = cells[0].get_text(strip=True)
+                                    subject_text = cells[1].get_text(strip=True)
+                                    teacher_text = cells[2].get_text(strip=True) if len(cells) > 2 else ""
+                                    room_text = cells[3].get_text(strip=True) if len(cells) > 3 else ""
+                                    
+                                    # Only add if it looks like a lesson (has time pattern or subject)
+                                    if re.match(r'\d{1,2}:\d{2}', time_text) or subject_text.strip():
+                                        lesson = {
+                                            'time': time_text,
+                                            'subject': subject_text,
+                                            'room': room_text,
+                                            'teacher': teacher_text,
+                                            'raw_text': f"{time_text} - {subject_text} - {teacher_text} - {room_text}"
+                                        }
+                                        lessons.append(lesson)
+                                        print(f"      ✅ Lesson: {lesson['raw_text']}")
+                                    else:
+                                        print(f"      ⚠️ Skipped row: {time_text} | {subject_text}")
             
             # Method 2: Look for div elements with lesson data
             lesson_divs = soup.find_all('div', class_=re.compile(r'lesson|tund|event|fc-|calendar'))
