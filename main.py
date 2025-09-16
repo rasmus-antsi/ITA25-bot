@@ -66,9 +66,6 @@ async def info(ctx, *, message=None):
     except:
         pass  # If we can't delete, just continue
     
-    # Send info to the designated channel with separation
-    await info_channel.send("─" * 50)  # Separator line
-    
     # Check if there are attachments (images)
     if ctx.message.attachments:
         # If there are images, send them with @everyone ping
@@ -80,9 +77,6 @@ async def info(ctx, *, message=None):
     else:
         # If no images, send text with @everyone ping and attribution
         await info_channel.send(f"@everyone {message} by {ctx.author.display_name}")
-    
-    # Add another separator line
-    await info_channel.send("─" * 50)
 
 @bot.command()
 async def info_set(ctx, channel: discord.TextChannel = None):
