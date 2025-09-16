@@ -92,9 +92,9 @@ def scrape_internal_timetable():
             
             print("✅ Authentication attempted")
             
-            # Navigate to the timetable page
-            timetable_url = 'https://opilane.siseveeb.voco.ee/tunniplaan'
-            print(f"📅 Accessing timetable: {timetable_url}")
+            # Navigate to the reminders page which contains the daily plan
+            timetable_url = 'https://siseveeb.voco.ee/info/meeldetuletused'
+            print(f"📅 Accessing daily plan: {timetable_url}")
             
             driver.get(timetable_url)
             time.sleep(10)  # Wait for JavaScript to load
@@ -102,20 +102,16 @@ def scrape_internal_timetable():
             # Wait for the page to load
             wait = WebDriverWait(driver, 20)
             
-            # Try to wait for any timetable content
+            # Try to wait for the daily plan table
             try:
-                wait.until(EC.presence_of_element_located((By.TAG_NAME, "table")))
-                print("✅ Found table element")
+                wait.until(EC.presence_of_element_located((By.XPATH, "//table[contains(., 'Aeg') or contains(., 'Nimetus') or contains(., 'Õpetaja')]")))
+                print("✅ Found daily plan table")
             except:
                 try:
-                    wait.until(EC.presence_of_element_located((By.CLASS_NAME, "timetable")))
-                    print("✅ Found timetable element")
+                    wait.until(EC.presence_of_element_located((By.TAG_NAME, "table")))
+                    print("✅ Found table element")
                 except:
-                    try:
-                        wait.until(EC.presence_of_element_located((By.CLASS_NAME, "fc")))
-                        print("✅ Found calendar element")
-                    except:
-                        print("⚠️ No specific timetable elements found, continuing...")
+                    print("⚠️ No table elements found, continuing...")
             
             # Get the page source after JavaScript execution
             page_source = driver.page_source
@@ -133,33 +129,47 @@ def scrape_internal_timetable():
             # Look for various possible timetable structures
             lessons = []
             
-            # Method 1: Look for tables with lesson data
+            # Method 1: Look for the daily plan table specifically
             all_tables = soup.find_all('table')
             print(f"📊 Found {len(all_tables)} tables")
             
             for i, table in enumerate(all_tables):
                 print(f"  Table {i+1}: {len(table.find_all('tr'))} rows")
-                rows = table.find_all('tr')
-                for j, row in enumerate(rows):
-                    cells = row.find_all(['td', 'th'])
-                    if len(cells) >= 2:  # At least 2 columns
-                        row_text = ' '.join([cell.get_text(strip=True) for cell in cells])
-                        print(f"    Row {j+1}: {row_text[:100]}...")
+                
+                # Check if this table has the daily plan headers
+                header_row = table.find('tr')
+                if header_row:
+                    header_cells = header_row.find_all(['th', 'td'])
+                    header_text = ' '.join([cell.get_text(strip=True) for cell in header_cells])
+                    print(f"    Headers: {header_text}")
+                    
+                    # Check if this looks like the daily plan table
+                    if any(header in header_text for header in ['Aeg', 'Nimetus', 'Õpetaja', 'Ruum']):
+                        print(f"    ✅ Found daily plan table!")
                         
-                        # Look for Estonian lesson keywords
-                        if any(keyword in row_text.lower() for keyword in [
-                            'tund', 'lesson', 'õpetaja', 'teacher', 'ruum', 'room', 
-                            'aine', 'subject', 'kell', 'time', 'tunniplaan', 'schedule',
-                            'matemaatika', 'eesti', 'inglise', 'füüsika', 'keemia',
-                            'info', 'it', 'programmeerimine', 'digitehnoloogia'
-                        ]):
-                            lessons.append({
-                                'raw_text': row_text,
-                                'time': cells[0].get_text(strip=True) if len(cells) > 0 else '',
-                                'subject': cells[1].get_text(strip=True) if len(cells) > 1 else '',
-                                'room': cells[2].get_text(strip=True) if len(cells) > 2 else '',
-                                'teacher': cells[3].get_text(strip=True) if len(cells) > 3 else ''
-                            })
+                        rows = table.find_all('tr')[1:]  # Skip header row
+                        for j, row in enumerate(rows):
+                            cells = row.find_all(['td', 'th'])
+                            if len(cells) >= 4:  # Should have time, subject, teacher, room
+                                time_text = cells[0].get_text(strip=True)
+                                subject_text = cells[1].get_text(strip=True)
+                                teacher_text = cells[2].get_text(strip=True)
+                                room_text = cells[3].get_text(strip=True)
+                                
+                                # Only add if it looks like a lesson (has time pattern)
+                                if re.match(r'\d{1,2}:\d{2}', time_text):
+                                    lesson = {
+                                        'time': time_text,
+                                        'subject': subject_text,
+                                        'room': room_text,
+                                        'teacher': teacher_text,
+                                        'raw_text': f"{time_text} - {subject_text} - {teacher_text} - {room_text}"
+                                    }
+                                    lessons.append(lesson)
+                                    print(f"      ✅ Lesson: {lesson['raw_text']}")
+                                else:
+                                    print(f"      ⚠️ Skipped row (no time): {time_text}")
+                        break  # Found the daily plan table, no need to check others
             
             # Method 2: Look for div elements with lesson data
             lesson_divs = soup.find_all('div', class_=re.compile(r'lesson|tund|event|fc-|calendar'))
