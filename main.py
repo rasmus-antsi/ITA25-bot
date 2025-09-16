@@ -152,15 +152,29 @@ def scrape_timetable():
             day_headers = driver.find_elements(By.CSS_SELECTOR, "th[class*='fc-day']")
             today_column_index = None
             
+            # Try multiple ways to identify today's column
             for i, header in enumerate(day_headers):
                 header_text = header.text
                 header_class = header.get_attribute("class")
                 print(f"Header {i}: '{header_text}' class: '{header_class}'")
                 
-                # Look for today's date in the header text
-                if today_str in header_text or "fc-today" in header_class:
-                    today_column_index = i
-                    print(f"Found today's column at index {i}")
+                # Look for today's date in various formats
+                today_formats = [
+                    today_str,  # "16.9"
+                    today.strftime("%d.%m"),  # "16.09"
+                    today.strftime("%d"),  # "16"
+                    today.strftime("%a"),  # "Tue"
+                    today.strftime("%A"),  # "Tuesday"
+                ]
+                
+                # Check if any format matches
+                for fmt in today_formats:
+                    if fmt in header_text or "fc-today" in header_class:
+                        today_column_index = i
+                        print(f"Found today's column at index {i} using format '{fmt}'")
+                        break
+                
+                if today_column_index is not None:
                     break
             
             if today_column_index is not None:
@@ -188,36 +202,43 @@ def scrape_timetable():
             if len(today_events) == 0:
                 print("No events found in today's column, trying fallback approach")
                 
-                # Filter events more carefully based on what we know should be today's lessons
+                # Since we can't find today's column precisely, we'll use a different strategy
+                # Look for events that have data attributes indicating they're for today
                 for event in all_events:
                     try:
+                        # Check if this event has a data-start attribute that matches today
+                        event_start = event.get_attribute("data-start")
+                        if event_start:
+                            # Parse the date from data-start attribute
+                            try:
+                                # FullCalendar uses ISO format: 2025-09-16T08:30:00
+                                event_date = datetime.fromisoformat(event_start.replace('Z', '+00:00'))
+                                if event_date.date() == today.date():
+                                    today_events.append(event)
+                                    print(f"Added event for today: {event.text[:50]}...")
+                                    continue
+                            except:
+                                pass
+                        
+                        # If no data-start attribute, try to determine by position
+                        # This is a fallback - we'll include all events and let the user decide
                         event_text = event.text
-                        print(f"Checking event: {event_text[:50]}...")
-                        
-                        # Skip lessons that are clearly from other days or not relevant
-                        skip_patterns = [
-                            'Tegevuspäev',  # Activity day events
-                            'Kultuur ja suhtlemine',  # This seems to be from another day
-                            'Sissejuhatus IT-valdkonda_Rühm 1',  # This is from Monday, not Tuesday
-                            'Sissejuhatus IT_valdkonda_Rühm 1; Sissejuhatus IT_valdkonda_Rühm 2',  # Combined groups from other days
-                        ]
-                        
-                        should_skip = False
-                        for pattern in skip_patterns:
-                            if pattern in event_text:
-                                should_skip = True
-                                print(f"Skipping event with pattern '{pattern}': {event_text[:50]}...")
-                                break
-                        
-                        # Only include events that seem relevant for today based on your screenshot
-                        if not should_skip:
-                            # Look for events that match what we saw in the screenshot for Tuesday
-                            if any(keyword in event_text.lower() for keyword in [
-                                'sissejuhatus it_valdkonda', 'digitehnoloogia', 'oskused tööks ja eluks', 
-                                'üldainete kordamine', 'programmeerimise alused'
-                            ]):
+                        if event_text and event_text.strip():
+                            # Only skip obviously non-lesson events
+                            skip_patterns = [
+                                'Tegevuspäev',  # Activity day events
+                            ]
+                            
+                            should_skip = False
+                            for pattern in skip_patterns:
+                                if pattern in event_text:
+                                    should_skip = True
+                                    break
+                            
+                            if not should_skip:
                                 today_events.append(event)
-                                print(f"Added event: {event_text[:50]}...")
+                                print(f"Added event (fallback): {event_text[:50]}...")
+                                
                     except Exception as e:
                         print(f"Error processing event: {e}")
                         continue
@@ -226,6 +247,12 @@ def scrape_timetable():
                 if len(today_events) == 0:
                     print("No events found for today")
                     today_events = []
+            
+            # If we still have too many events, try to limit to a reasonable number
+            # This is a safety measure to avoid showing too many lessons
+            if len(today_events) > 10:
+                print(f"Found {len(today_events)} events, limiting to first 10")
+                today_events = today_events[:10]
             
             # Parse events into lessons
             today_lessons = []
