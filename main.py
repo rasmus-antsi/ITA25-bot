@@ -60,6 +60,15 @@ async def info(ctx, *, message=None):
         await ctx.send("❌ Please provide a message or image! Usage: `!info Your message here` or attach an image")
         return
     
+    # Delete the original command message first
+    try:
+        await ctx.message.delete()
+    except:
+        pass  # If we can't delete, just continue
+    
+    # Send info to the designated channel with separation
+    await info_channel.send("─" * 50)  # Separator line
+    
     # Check if there are attachments (images)
     if ctx.message.attachments:
         # If there are images, send them with @everyone ping
@@ -80,22 +89,8 @@ async def info(ctx, *, message=None):
         await info_channel.send(f"@everyone {message}")
         await info_channel.send(f"by {ctx.author.display_name}")
     
-    # Delete the original command message
-    try:
-        await ctx.message.delete()
-    except:
-        pass  # If we can't delete, just continue
-    
-    # Send confirmation and then delete it after a few seconds
-    confirm_msg = await ctx.send(f"✅ Info sent to {info_channel.mention}")
-    
-    # Delete the confirmation message after 3 seconds
-    import asyncio
-    await asyncio.sleep(3)
-    try:
-        await confirm_msg.delete()
-    except:
-        pass  # If we can't delete, just continue
+    # Add another separator line
+    await info_channel.send("─" * 50)
 
 @bot.command()
 async def info_set(ctx, channel: discord.TextChannel = None):
