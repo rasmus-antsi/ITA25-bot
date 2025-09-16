@@ -1,5 +1,2 @@
 discord.py==2.3.2
 python-dotenv
-requests
-beautifulsoup4
-selenium
