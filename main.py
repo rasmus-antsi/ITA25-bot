@@ -63,8 +63,12 @@ async def info(ctx, *, message=None):
     # Delete the original command message first
     try:
         await ctx.message.delete()
-    except:
-        pass  # If we can't delete, just continue
+    except discord.Forbidden:
+        # Bot doesn't have permission to delete messages
+        pass
+    except Exception as e:
+        print(f"⚠️ Could not delete message: {e}")
+        pass
     
     # Check if there are attachments (images)
     if ctx.message.attachments:
@@ -77,6 +81,9 @@ async def info(ctx, *, message=None):
     else:
         # If no images, send text with @everyone ping and attribution
         await info_channel.send(f"@everyone {message} by {ctx.author.display_name}")
+    
+    # Send a confirmation message to the user (like info-set does)
+    await ctx.send(f"✅ Info sent to {info_channel.mention}")
 
 @bot.command()
 async def info_set(ctx, channel: discord.TextChannel = None):
