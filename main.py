@@ -39,8 +39,25 @@ async def tunniplaan(ctx):
             )
         
         if not result['success']:
-            await ctx.send(f"❌ Error: {result['error']}")
-            return
+            # If internal portal fails due to 2FA, try public timetable as fallback
+            if "2FA" in result['error'] or "authentication" in result['error'].lower():
+                await ctx.send(f"⚠️ Internal portal requires 2FA. Trying public timetable as fallback...")
+                
+                # Try public timetable as fallback
+                try:
+                    from scraper import scrape_public_timetable
+                    result = scrape_public_timetable()
+                    if result['success']:
+                        await ctx.send("✅ Using public timetable data")
+                    else:
+                        await ctx.send(f"❌ Both internal and public timetables failed: {result['error']}")
+                        return
+                except Exception as e:
+                    await ctx.send(f"❌ Error: {result['error']}")
+                    return
+            else:
+                await ctx.send(f"❌ Error: {result['error']}")
+                return
             
         weekly_lessons = result['lessons']
         week_range = result['week_range']
