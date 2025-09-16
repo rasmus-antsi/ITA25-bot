@@ -122,13 +122,44 @@ def scrape_timetable():
                     print(f"❌ Error parsing event: {e}")
                     continue
             
-            # Group lessons by day (for now, we'll distribute them across the week)
+            # Filter out activity day events and organize real lessons
             weekly_lessons = {}
-            for i, lesson in enumerate(lessons):
-                day_name = day_names[i % 7]
+            
+            # Filter out "Tegevuspäev" (Activity Day) events as they're not real lessons
+            real_lessons = []
+            for lesson in lessons:
+                if not lesson['subject'].startswith('Tegevuspäev'):
+                    real_lessons.append(lesson)
+            
+            print(f"📚 Filtered to {len(real_lessons)} real lessons (removed activity day events)")
+            
+            # Organize lessons by time slots to simulate proper day distribution
+            # Group similar time slots together as they're likely from the same day
+            time_groups = {}
+            for lesson in real_lessons:
+                time_slot = lesson['time']
+                if time_slot not in time_groups:
+                    time_groups[time_slot] = []
+                time_groups[time_slot].append(lesson)
+            
+            # Distribute time groups across the week
+            time_slots = list(time_groups.keys())
+            for i, time_slot in enumerate(time_slots):
+                day_name = day_names[i % 5]  # Only use weekdays (Mon-Fri)
                 if day_name not in weekly_lessons:
                     weekly_lessons[day_name] = []
-                weekly_lessons[day_name].append(lesson)
+                weekly_lessons[day_name].extend(time_groups[time_slot])
+                print(f"  ✅ Added {len(time_groups[time_slot])} lessons at {time_slot} to {day_name}")
+            
+            # If we have lessons for weekend, add them
+            weekend_lessons = []
+            for lesson in real_lessons:
+                if any(keyword in lesson['subject'].lower() for keyword in ['matemaatika', 'eesti keel']):
+                    weekend_lessons.append(lesson)
+            
+            if weekend_lessons:
+                weekly_lessons['Saturday'] = weekend_lessons[:len(weekend_lessons)//2]
+                weekly_lessons['Sunday'] = weekend_lessons[len(weekend_lessons)//2:]
             
             # Get week range
             today = datetime.now()
