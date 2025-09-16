@@ -80,8 +80,22 @@ async def info(ctx, *, message=None):
         await info_channel.send(f"@everyone {message}")
         await info_channel.send(f"by {ctx.author.display_name}")
     
-    # Confirm to the user
-    await ctx.send(f"✅ Info sent to {info_channel.mention}")
+    # Delete the original command message
+    try:
+        await ctx.message.delete()
+    except:
+        pass  # If we can't delete, just continue
+    
+    # Send confirmation and then delete it after a few seconds
+    confirm_msg = await ctx.send(f"✅ Info sent to {info_channel.mention}")
+    
+    # Delete the confirmation message after 3 seconds
+    import asyncio
+    await asyncio.sleep(3)
+    try:
+        await confirm_msg.delete()
+    except:
+        pass  # If we can't delete, just continue
 
 @bot.command()
 async def info_set(ctx, channel: discord.TextChannel = None):
