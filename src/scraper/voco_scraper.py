@@ -91,26 +91,64 @@ def scrape_timetable(period="daily"):
         try:
             # Wait for calendar to load
             calendar_element = wait.until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, ".fc-view, .calendar, [class*='calendar']"))
+                EC.presence_of_element_located((By.CSS_SELECTOR, ".fc-view, .calendar, [class*='calendar'], .fc"))
             )
             print("✅ Found calendar element")
             
-            # Look for events in the calendar
-            event_elements = driver.find_elements(By.CSS_SELECTOR, ".fc-event, .event, [class*='event']")
-            print(f"📅 Found {len(event_elements)} event elements")
+            # Look for events in the calendar with multiple selectors
+            event_selectors = [
+                ".fc-event",
+                ".fc-event-main", 
+                ".fc-event-title",
+                ".event",
+                "[class*='event']",
+                "[class*='lesson']",
+                ".lesson"
+            ]
+            
+            event_elements = []
+            for selector in event_selectors:
+                elements = driver.find_elements(By.CSS_SELECTOR, selector)
+                if elements:
+                    event_elements.extend(elements)
+                    print(f"📅 Found {len(elements)} elements with selector: {selector}")
+            
+            # Remove duplicates
+            event_elements = list(set(event_elements))
+            print(f"📅 Total unique event elements: {len(event_elements)}")
             
             for event in event_elements:
                 try:
                     title = event.text.strip()
-                    if title:
-                        # Try to get time information
-                        time_element = event.find_element(By.CSS_SELECTOR, ".fc-time, .time, [class*='time']")
-                        time_text = time_element.text.strip() if time_element else "Unknown"
+                    if title and len(title) > 3:  # Filter out empty or very short text
+                        # Try to get time information from various sources
+                        time_text = "Unknown"
+                        
+                        # Try to find time in the event element itself
+                        try:
+                            time_element = event.find_element(By.CSS_SELECTOR, ".fc-time, .time, [class*='time']")
+                            time_text = time_element.text.strip()
+                        except:
+                            # Try to find time in parent elements
+                            try:
+                                parent = event.find_element(By.XPATH, "..")
+                                time_element = parent.find_element(By.CSS_SELECTOR, ".fc-time, .time, [class*='time']")
+                                time_text = time_element.text.strip()
+                            except:
+                                pass
+                        
+                        # Try to extract time from title if not found elsewhere
+                        if time_text == "Unknown":
+                            time_match = re.search(r'(\d{1,2}:\d{2})', title)
+                            if time_match:
+                                time_text = time_match.group(1)
                         
                         lesson = parse_lesson_data(title, time_text)
                         if lesson:
                             lessons.append(lesson)
-                except:
+                            print(f"✅ Parsed lesson: {lesson['time']} - {lesson['subject']}")
+                except Exception as e:
+                    print(f"⚠️ Error processing event: {e}")
                     continue
                     
         except Exception as e:
@@ -179,25 +217,68 @@ def scrape_timetable(period="daily"):
 def parse_lesson_data(title, start_time):
     """Parse lesson data from title and start time"""
     try:
-        # Extract time from start_time (format: YYYY-MM-DDTHH:MM:SS)
-        if 'T' in start_time:
+        # Handle different time formats
+        if 'T' in start_time and start_time != "Unknown":
+            # ISO format: YYYY-MM-DDTHH:MM:SS
             time_part = start_time.split('T')[1].split(':')[0:2]
             time_str = f"{time_part[0]}:{time_part[1]}"
+        elif re.match(r'\d{1,2}:\d{2}', start_time):
+            # Already in HH:MM format
+            time_str = start_time
         else:
-            time_str = "Unknown"
+            # Try to extract time from title
+            time_match = re.search(r'(\d{1,2}:\d{2})', title)
+            if time_match:
+                time_str = time_match.group(1)
+            else:
+                time_str = "Unknown"
         
         # Parse title for subject, room, teacher
-        # Common patterns in Estonian timetables
-        parts = title.split(' - ')
-        if len(parts) >= 3:
-            subject = parts[0].strip()
-            room = parts[1].strip()
-            teacher = parts[2].strip()
+        # Clean up the title first
+        title = title.strip()
+        
+        # Skip if title is too short or contains navigation elements
+        if len(title) < 5 or any(skip in title.lower() for skip in ['vali tunniplaan', 'täna', 'kuu', 'nädal', 'kontakt', 'siseveeb']):
+            return None
+        
+        # Try different parsing patterns
+        subject = "Unknown"
+        room = "Unknown" 
+        teacher = "Unknown"
+        
+        # Pattern 1: "Subject - Room - Teacher" format
+        if ' - ' in title and title.count(' - ') >= 2:
+            parts = [p.strip() for p in title.split(' - ')]
+            if len(parts) >= 3:
+                subject = parts[0]
+                room = parts[1]
+                teacher = parts[2]
+        
+        # Pattern 2: Look for room pattern like "A401" or "A401 (Arvutiklass)"
+        elif re.search(r'[A-Z]\d{3}', title):
+            # Extract room
+            room_match = re.search(r'([A-Z]\d{3}(?: \([^)]+\))?)', title)
+            if room_match:
+                room = room_match.group(1)
+                # Remove room from title to get subject
+                remaining = title.replace(room_match.group(1), '').strip()
+                # Split by common separators
+                parts = re.split(r'\s+-\s+|\s+', remaining)
+                subject = parts[0] if parts else "Unknown"
+                teacher = parts[-1] if len(parts) > 1 else "Unknown"
+        
+        # Pattern 3: Simple fallback
         else:
-            # Fallback parsing
-            subject = title
-            room = "Unknown"
-            teacher = "Unknown"
+            # Try to split by common separators
+            parts = re.split(r'\s+-\s+|\s+', title)
+            if len(parts) >= 2:
+                subject = parts[0]
+                if len(parts) > 1:
+                    teacher = parts[-1]
+                if len(parts) > 2:
+                    room = parts[1]
+            else:
+                subject = title
         
         return {
             'time': time_str,
@@ -206,7 +287,8 @@ def parse_lesson_data(title, start_time):
             'teacher': teacher,
             'raw_text': title
         }
-    except:
+    except Exception as e:
+        print(f"⚠️ Error parsing lesson data: {e}")
         return None
 
 def scrape_table_data(soup):
