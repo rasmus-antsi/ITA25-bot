@@ -2,8 +2,7 @@ import os
 import discord
 from discord.ext import commands
 from dotenv import load_dotenv
-from src.commands.info import setup_info_commands
-from src.commands.tunniplaan import setup_tunniplaan_commands
+from src.commands import setup_info_commands
 
 # Load environment variables from .env file
 load_dotenv()
@@ -20,7 +19,6 @@ async def on_ready():
 
 # Setup command groups
 setup_info_commands(bot)
-setup_tunniplaan_commands(bot)
 
 # Run the bot
 bot.run(TOKEN)
