@@ -83,16 +83,60 @@ def scrape_timetable():
             url = "https://voco.ee/tunniplaan/?course=2078"
             driver.get(url)
             
-            # Wait for the page to load and calendar to appear
+            # Wait for the page to load and course selector to appear
             wait = WebDriverWait(driver, 20)
-            wait.until(EC.presence_of_element_located((By.CLASS_NAME, "fc")))
+            wait.until(EC.presence_of_element_located((By.ID, "course_select")))
+            
+            # Wait for course options to be populated
+            time.sleep(3)
+            
+            # Select the course (2078)
+            try:
+                course_select = driver.find_element(By.ID, "course_select")
+                course_select.click()
+                time.sleep(1)
+                
+                # Look for the course option with value 2078
+                course_option = driver.find_element(By.CSS_SELECTOR, "option[value='2078']")
+                course_option.click()
+                time.sleep(2)
+                
+                # Wait for calendar to load
+                wait.until(EC.presence_of_element_located((By.CLASS_NAME, "fc")))
+                time.sleep(3)  # Additional wait for events to load
+                
+            except Exception as e:
+                print(f"Error selecting course: {e}")
+                # Continue anyway, maybe the course is already selected
             
             # Get today's date
             today = datetime.now()
             today_weekday = today.weekday()  # 0=Monday, 1=Tuesday, etc.
             
-            # Get all events from the calendar
-            all_events = driver.find_elements(By.CSS_SELECTOR, ".fc-event")
+            # Get all events from the calendar - try multiple selectors
+            all_events = []
+            event_selectors = [
+                ".fc-event",
+                ".fc-event-container .fc-event", 
+                ".fc-content .fc-event",
+                "[class*='fc-event']"
+            ]
+            
+            for selector in event_selectors:
+                events = driver.find_elements(By.CSS_SELECTOR, selector)
+                if events:
+                    all_events = events
+                    print(f"Found {len(events)} events using selector: {selector}")
+                    break
+            
+            if not all_events:
+                print("No events found with any selector")
+                # Try to get page source for debugging
+                page_source = driver.page_source
+                if "fc-event" in page_source:
+                    print("fc-event found in page source but not as elements")
+                else:
+                    print("fc-event not found in page source")
             
             # Find today's events by looking at the calendar structure more carefully
             today_events = []
