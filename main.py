@@ -62,7 +62,19 @@ async def info(ctx, *, message=None):
     
     # Send the message with @everyone ping to the info channel
     await info_channel.send("@everyone")
-    await info_channel.send(message)
+    
+    # Create embed with sender info
+    embed = discord.Embed(
+        description=message,
+        color=0x00ff00
+    )
+    embed.set_author(
+        name=f"From: {ctx.author.display_name}",
+        icon_url=ctx.author.display_avatar.url
+    )
+    embed.set_footer(text="ITA25 Bot")
+    
+    await info_channel.send(embed=embed)
     
     # Confirm to the user
     await ctx.send(f"✅ Info sent to {info_channel.mention}")
