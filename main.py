@@ -198,6 +198,8 @@ def scrape_timetable():
                         skip_patterns = [
                             'Tegevuspäev',  # Activity day events
                             'Kultuur ja suhtlemine',  # This seems to be from another day
+                            'Sissejuhatus IT-valdkonda_Rühm 1',  # This is from Monday, not Tuesday
+                            'Sissejuhatus IT_valdkonda_Rühm 1; Sissejuhatus IT_valdkonda_Rühm 2',  # Combined groups from other days
                         ]
                         
                         should_skip = False
@@ -257,6 +259,7 @@ def scrape_timetable():
                         r'Kopli A - (A\d+)',  # Kopli A - A401
                         r'\(A\d+\)',          # (A401)
                         r'A\d+',              # A401
+                        r'Kopli A',           # Just "Kopli A" without room number
                     ]
                     
                     for pattern in room_patterns:
