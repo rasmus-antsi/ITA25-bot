@@ -2,7 +2,7 @@ import os
 import discord
 from discord.ext import commands
 
-TOKEN = "MTQxNTIxNTYxMzQyODYyOTUyNA.GAl9Bs.l_-yEylKcZm3g6lsn7Jn6VxwB5Wp0SrJ2l89f4"
+TOKEN = os.getenv("DISCORD_TOKEN")
 
 # You must define intents now
 intents = discord.Intents.default()
