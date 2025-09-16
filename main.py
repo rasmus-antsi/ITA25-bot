@@ -447,10 +447,45 @@ def scrape_weekly_timetable():
                     
                     if event_start:
                         try:
-                            event_date = datetime.fromisoformat(event_start.replace('Z', '+00:00'))
+                            # Handle different date formats
+                            if 'T' in event_start:
+                                # ISO format: 2025-09-16T08:30:00
+                                event_date = datetime.fromisoformat(event_start.replace('Z', '+00:00'))
+                            else:
+                                # Date only format: 2025-09-16
+                                event_date = datetime.fromisoformat(event_start)
+                            
                             day_name = day_names[event_date.weekday()]
-                        except:
+                            print(f"Event '{title[:30]}...' assigned to {day_name} (from {event_start})")
+                        except Exception as e:
+                            print(f"Error parsing date '{event_start}': {e}")
                             pass
+                    else:
+                        print(f"No data-start attribute for event: '{title[:30]}...'")
+                        # Try to determine day by looking at the event's position
+                        try:
+                            # Get the event's parent elements to find which day column it's in
+                            parent = event.find_element(By.XPATH, "./ancestor::td[contains(@class, 'fc-day')]")
+                            if parent:
+                                # Look for day information in the parent's class or nearby elements
+                                parent_class = parent.get_attribute("class")
+                                print(f"Event parent class: {parent_class}")
+                                
+                                # Try to find day header for this column
+                                day_headers = driver.find_elements(By.CSS_SELECTOR, "th[class*='fc-day']")
+                                for i, header in enumerate(day_headers):
+                                    if f"fc-day-{i}" in parent_class or f"fc-day{i}" in parent_class:
+                                        header_text = header.text
+                                        if header_text:
+                                            # Try to extract day from header text
+                                            for day in day_names:
+                                                if day.lower()[:3] in header_text.lower():
+                                                    day_name = day
+                                                    print(f"Event assigned to {day_name} based on position")
+                                                    break
+                                        break
+                        except Exception as e:
+                            print(f"Could not determine day by position: {e}")
                     
                     # Parse the event data
                     room = ""
