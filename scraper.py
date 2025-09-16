@@ -10,12 +10,18 @@ from datetime import datetime, timedelta
 import re
 import os
 from dotenv import load_dotenv
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.chrome.options import Options
+import time
 
 # Load environment variables
 load_dotenv()
 
 def scrape_internal_timetable():
-    """Scrape the internal timetable from siseveeb.voco.ee"""
+    """Scrape the internal timetable from siseveeb.voco.ee using Selenium"""
     try:
         # Get credentials from environment variables
         username = os.getenv("VOCO_USERNAME")
@@ -27,75 +33,126 @@ def scrape_internal_timetable():
                 'error': 'Missing credentials. Please set VOCO_USERNAME and VOCO_PASSWORD in .env file'
             }
         
-        # Set up the authentication session
-        session = requests.Session()
+        # Set up Chrome options
+        chrome_options = Options()
+        chrome_options.add_argument("--headless")
+        chrome_options.add_argument("--no-sandbox")
+        chrome_options.add_argument("--disable-dev-shm-usage")
+        chrome_options.add_argument("--disable-gpu")
+        chrome_options.add_argument("--window-size=1920,1080")
+        chrome_options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
         
-        # Set headers to mimic a real browser
-        session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.5',
-            'Accept-Encoding': 'gzip, deflate',
-            'Connection': 'keep-alive',
-            'Upgrade-Insecure-Requests': '1',
-        })
+        driver = webdriver.Chrome(options=chrome_options)
         
-        print("🔐 Authenticating with siseveeb.voco.ee...")
-        
-        # Login to the internal system
-        login_url = 'https://siseveeb.voco.ee/ajax_send'
-        payload = {
-            'form': 'login',
-            'username': username,
-            'password': password
-        }
-        
-        login_response = session.post(login_url, data=payload)
-        
-        if login_response.status_code != 200:
-            return {
-                'success': False,
-                'error': f'Login failed with status code: {login_response.status_code}'
-            }
-        
-        print("✅ Authentication successful")
-        
-        # Navigate to the timetable page
-        timetable_url = 'https://opilane.siseveeb.voco.ee/tunniplaan'
-        print(f"📅 Accessing timetable: {timetable_url}")
-        
-        response = session.get(timetable_url)
-        
-        if response.status_code != 200:
-            return {
-                'success': False,
-                'error': f'Failed to access timetable with status code: {response.status_code}'
-            }
-        
-        soup = BeautifulSoup(response.content, 'html.parser')
-        
-        # Look for timetable data
-        print("🔍 Parsing timetable data...")
-        
-        # Try to find timetable elements
-        timetable_elements = soup.find_all(['table', 'div'], class_=re.compile(r'timetable|schedule|lesson|event'))
-        
-        if not timetable_elements:
-            # Look for any structured data that might contain lessons
-            all_tables = soup.find_all('table')
-            all_divs = soup.find_all('div', class_=re.compile(r'fc-|calendar|event'))
+        try:
+            print("🔐 Authenticating with siseveeb.voco.ee...")
             
-            print(f"📊 Found {len(all_tables)} tables and {len(all_divs)} calendar divs")
+            # First, go to the login page
+            login_url = 'https://siseveeb.voco.ee/'
+            driver.get(login_url)
+            time.sleep(3)
             
-            # Try to extract data from tables
+            # Look for login form elements
+            try:
+                # Try to find username and password fields
+                username_field = driver.find_element(By.NAME, "username")
+                password_field = driver.find_element(By.NAME, "password")
+                
+                username_field.send_keys(username)
+                password_field.send_keys(password)
+                
+                # Look for login button
+                login_button = driver.find_element(By.XPATH, "//input[@type='submit'] | //button[contains(text(), 'Login')] | //button[contains(text(), 'Sisene')]")
+                login_button.click()
+                
+                time.sleep(5)  # Wait for login to complete
+                
+            except Exception as e:
+                print(f"⚠️ Could not find login form: {e}")
+                # Try alternative login method
+                try:
+                    # Try to find and click login link
+                    login_link = driver.find_element(By.XPATH, "//a[contains(text(), 'Login')] | //a[contains(text(), 'Sisene')]")
+                    login_link.click()
+                    time.sleep(3)
+                    
+                    username_field = driver.find_element(By.NAME, "username")
+                    password_field = driver.find_element(By.NAME, "password")
+                    
+                    username_field.send_keys(username)
+                    password_field.send_keys(password)
+                    
+                    login_button = driver.find_element(By.XPATH, "//input[@type='submit'] | //button[contains(text(), 'Login')] | //button[contains(text(), 'Sisene')]")
+                    login_button.click()
+                    
+                    time.sleep(5)
+                    
+                except Exception as e2:
+                    print(f"⚠️ Alternative login also failed: {e2}")
+            
+            print("✅ Authentication attempted")
+            
+            # Navigate to the timetable page
+            timetable_url = 'https://opilane.siseveeb.voco.ee/tunniplaan'
+            print(f"📅 Accessing timetable: {timetable_url}")
+            
+            driver.get(timetable_url)
+            time.sleep(10)  # Wait for JavaScript to load
+            
+            # Wait for the page to load
+            wait = WebDriverWait(driver, 20)
+            
+            # Try to wait for any timetable content
+            try:
+                wait.until(EC.presence_of_element_located((By.TAG_NAME, "table")))
+                print("✅ Found table element")
+            except:
+                try:
+                    wait.until(EC.presence_of_element_located((By.CLASS_NAME, "timetable")))
+                    print("✅ Found timetable element")
+                except:
+                    try:
+                        wait.until(EC.presence_of_element_located((By.CLASS_NAME, "fc")))
+                        print("✅ Found calendar element")
+                    except:
+                        print("⚠️ No specific timetable elements found, continuing...")
+            
+            # Get the page source after JavaScript execution
+            page_source = driver.page_source
+            soup = BeautifulSoup(page_source, 'html.parser')
+            
+            # Look for timetable data
+            print("🔍 Parsing timetable data...")
+            print(f"📄 Page title: {soup.title.string if soup.title else 'No title'}")
+            
+            # Debug: Save page content for analysis
+            with open('debug_page.html', 'w', encoding='utf-8') as f:
+                f.write(page_source)
+            print("💾 Saved page content to debug_page.html for analysis")
+            
+            # Look for various possible timetable structures
             lessons = []
-            for table in all_tables:
+            
+            # Method 1: Look for tables with lesson data
+            all_tables = soup.find_all('table')
+            print(f"📊 Found {len(all_tables)} tables")
+            
+            for i, table in enumerate(all_tables):
+                print(f"  Table {i+1}: {len(table.find_all('tr'))} rows")
                 rows = table.find_all('tr')
-                for row in rows:
+                for j, row in enumerate(rows):
                     cells = row.find_all(['td', 'th'])
-                    if len(cells) >= 3:  # At least time, subject, room
+                    if len(cells) >= 2:  # At least 2 columns
                         row_text = ' '.join([cell.get_text(strip=True) for cell in cells])
-                        if any(keyword in row_text.lower() for keyword in ['tund', 'lesson', 'õpetaja', 'teacher', 'ruum', 'room']):
+                        print(f"    Row {j+1}: {row_text[:100]}...")
+                        
+                        # Look for Estonian lesson keywords
+                        if any(keyword in row_text.lower() for keyword in [
+                            'tund', 'lesson', 'õpetaja', 'teacher', 'ruum', 'room', 
+                            'aine', 'subject', 'kell', 'time', 'tunniplaan', 'schedule',
+                            'matemaatika', 'eesti', 'inglise', 'füüsika', 'keemia',
+                            'info', 'it', 'programmeerimine', 'digitehnoloogia'
+                        ]):
                             lessons.append({
                                 'raw_text': row_text,
                                 'time': cells[0].get_text(strip=True) if len(cells) > 0 else '',
@@ -104,55 +161,88 @@ def scrape_internal_timetable():
                                 'teacher': cells[3].get_text(strip=True) if len(cells) > 3 else ''
                             })
             
-            if lessons:
-                print(f"✅ Found {len(lessons)} potential lessons in tables")
-            else:
-                # If no structured data found, return the page content for analysis
+            # Method 2: Look for div elements with lesson data
+            lesson_divs = soup.find_all('div', class_=re.compile(r'lesson|tund|event|fc-|calendar'))
+            print(f"📅 Found {len(lesson_divs)} lesson divs")
+            
+            for div in lesson_divs:
+                text_content = div.get_text(strip=True)
+                if text_content and len(text_content) > 5:
+                    print(f"  Div content: {text_content[:100]}...")
+                    if any(keyword in text_content.lower() for keyword in [
+                        'tund', 'lesson', 'õpetaja', 'teacher', 'ruum', 'room'
+                    ]):
+                        lessons.append({
+                            'raw_text': text_content,
+                            'time': 'Unknown',
+                            'subject': 'Unknown',
+                            'room': 'Unknown',
+                            'teacher': 'Unknown'
+                        })
+            
+            # Method 3: Look for any text that might contain lesson information
+            page_text = soup.get_text()
+            print(f"📝 Page text length: {len(page_text)} characters")
+            
+            # Look for time patterns (HH:MM - HH:MM)
+            time_pattern = r'(\d{1,2}:\d{2})\s*[-–]\s*(\d{1,2}:\d{2})'
+            time_matches = re.findall(time_pattern, page_text)
+            print(f"🕐 Found {len(time_matches)} time patterns: {time_matches[:5]}")
+            
+            # Look for Estonian subject patterns
+            subject_patterns = [
+                r'(Matemaatika|Eesti keel|Inglise keel|Füüsika|Keemia|Info|IT|Programmeerimine)',
+                r'(õpetaja|teacher|ruum|room|tund|lesson)',
+            ]
+            
+            for pattern in subject_patterns:
+                matches = re.findall(pattern, page_text, re.IGNORECASE)
+                if matches:
+                    print(f"📚 Found subjects: {matches[:5]}")
+            
+            if not lessons:
+                # Return detailed debug information
                 return {
                     'success': False,
-                    'error': 'No timetable data found. Page might require different parsing approach.',
+                    'error': 'No timetable data found. Check debug_page.html for page structure.',
                     'page_title': soup.title.string if soup.title else 'No title',
-                    'content_preview': soup.get_text()[:500] + '...' if soup.get_text() else 'No content'
+                    'debug_info': {
+                        'tables_found': len(all_tables),
+                        'lesson_divs_found': len(lesson_divs),
+                        'time_patterns_found': len(time_matches),
+                        'page_text_length': len(page_text),
+                        'content_preview': page_text[:1000] + '...' if page_text else 'No content'
+                    }
                 }
-        else:
-            print(f"✅ Found {len(timetable_elements)} timetable elements")
-            lessons = []
             
-            for element in timetable_elements:
-                # Extract lesson data from timetable elements
-                text_content = element.get_text(strip=True)
-                if text_content and len(text_content) > 10:  # Filter out empty elements
-                    lessons.append({
-                        'raw_text': text_content,
-                        'time': 'Unknown',
-                        'subject': 'Unknown',
-                        'room': 'Unknown',
-                        'teacher': 'Unknown'
-                    })
-        
-        # Organize lessons by day (simplified approach)
-        weekly_lessons = {}
-        day_names = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-        
-        for i, lesson in enumerate(lessons):
-            day_name = day_names[i % 7]
-            if day_name not in weekly_lessons:
-                weekly_lessons[day_name] = []
-            weekly_lessons[day_name].append(lesson)
-        
-        # Get week range
-        today = datetime.now()
-        week_start = today - timedelta(days=today.weekday())
-        week_end = week_start + timedelta(days=6)
-        week_range = f"{week_start.strftime('%d.%m')} - {week_end.strftime('%d.%m.%Y')}"
-        
-        return {
-            'success': True,
-            'lessons': weekly_lessons,
-            'week_range': week_range,
-            'source': 'Internal siseveeb.voco.ee',
-            'total_lessons': len(lessons)
-        }
+            print(f"✅ Found {len(lessons)} potential lessons")
+            
+            # Organize lessons by day (simplified approach)
+            weekly_lessons = {}
+            day_names = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+            
+            for i, lesson in enumerate(lessons):
+                day_name = day_names[i % 7]
+                if day_name not in weekly_lessons:
+                    weekly_lessons[day_name] = []
+                weekly_lessons[day_name].append(lesson)
+            
+            # Get week range
+            today = datetime.now()
+            week_start = today - timedelta(days=today.weekday())
+            week_end = week_start + timedelta(days=6)
+            week_range = f"{week_start.strftime('%d.%m')} - {week_end.strftime('%d.%m.%Y')}"
+            
+            return {
+                'success': True,
+                'lessons': weekly_lessons,
+                'week_range': week_range,
+                'source': 'Internal siseveeb.voco.ee',
+                'total_lessons': len(lessons)
+            }
+            
+        finally:
+            driver.quit()
         
     except Exception as e:
         return {
@@ -179,8 +269,8 @@ def main():
                     print(f"  📝 {lesson['raw_text'][:100]}...")
     else:
         print(f"❌ Error: {result['error']}")
-        if 'content_preview' in result:
-            print(f"📄 Content preview: {result['content_preview']}")
+        if 'debug_info' in result:
+            print(f"📊 Debug info: {result['debug_info']}")
 
 if __name__ == "__main__":
     main()
