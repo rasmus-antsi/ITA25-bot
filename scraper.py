@@ -54,43 +54,43 @@ def scrape_internal_timetable():
             
             # Look for login form elements
             try:
-                # Try to find username and password fields
+                # Wait for login form to be present
+                wait_login = WebDriverWait(driver, 10)
+                wait_login.until(EC.presence_of_element_located((By.NAME, "username")))
+                
+                # Find username and password fields
                 username_field = driver.find_element(By.NAME, "username")
                 password_field = driver.find_element(By.NAME, "password")
                 
+                # Clear fields and enter credentials
+                username_field.clear()
+                password_field.clear()
                 username_field.send_keys(username)
                 password_field.send_keys(password)
                 
-                # Look for login button
-                login_button = driver.find_element(By.XPATH, "//input[@type='submit'] | //button[contains(text(), 'Login')] | //button[contains(text(), 'Sisene')]")
+                # Find and click login button
+                login_button = driver.find_element(By.ID, "form_submit")
                 login_button.click()
                 
-                time.sleep(5)  # Wait for login to complete
+                print("🔐 Login form submitted, waiting for authentication...")
+                time.sleep(8)  # Wait for login to complete
+                
+                # Check if we're still on login page (authentication failed)
+                if "login" in driver.current_url.lower() or "autoriseerimine" in driver.page_source.lower():
+                    print("❌ Authentication failed - still on login page")
+                    return {
+                        'success': False,
+                        'error': 'Authentication failed. Please check credentials in .env file'
+                    }
+                else:
+                    print("✅ Authentication successful")
                 
             except Exception as e:
-                print(f"⚠️ Could not find login form: {e}")
-                # Try alternative login method
-                try:
-                    # Try to find and click login link
-                    login_link = driver.find_element(By.XPATH, "//a[contains(text(), 'Login')] | //a[contains(text(), 'Sisene')]")
-                    login_link.click()
-                    time.sleep(3)
-                    
-                    username_field = driver.find_element(By.NAME, "username")
-                    password_field = driver.find_element(By.NAME, "password")
-                    
-                    username_field.send_keys(username)
-                    password_field.send_keys(password)
-                    
-                    login_button = driver.find_element(By.XPATH, "//input[@type='submit'] | //button[contains(text(), 'Login')] | //button[contains(text(), 'Sisene')]")
-                    login_button.click()
-                    
-                    time.sleep(5)
-                    
-                except Exception as e2:
-                    print(f"⚠️ Alternative login also failed: {e2}")
-            
-            print("✅ Authentication attempted")
+                print(f"❌ Login failed: {e}")
+                return {
+                    'success': False,
+                    'error': f'Login failed: {str(e)}'
+                }
             
             # Navigate to the reminders page which contains the daily plan
             timetable_url = 'https://siseveeb.voco.ee/info/meeldetuletused'
