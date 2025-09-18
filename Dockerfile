@@ -11,4 +11,13 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
+# Create data directory for persistent storage
+RUN mkdir -p /app/data
+
+# Set environment variable for data directory
+ENV DATA_DIR=/app/data
+
+# Ensure data directory has proper permissions
+RUN chmod 755 /app/data
+
 CMD ["python", "main.py"]

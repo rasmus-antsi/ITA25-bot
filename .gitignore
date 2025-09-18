@@ -130,7 +130,8 @@ dmypy.json
 
 # Discord bot specific
 config.json
-info_channel.txt
+channels.json
+data/
 *.db
 *.sqlite
 
