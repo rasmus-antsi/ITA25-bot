@@ -60,16 +60,41 @@ def setup_info_commands(bot):
         await ctx.send("Tere! Olen elus Dockeris 🐳")
 
     @bot.command(name='tunniplaan')
-    async def tunniplaan(ctx):
-        """Näita tänaseid tunde ITA25-le"""
-        await ctx.send("🔍 Laen tänaseid tunde...")
+    async def tunniplaan(ctx, *, date_param=None):
+        """Näita tunde ITA25-le. Kasutamine: !tunniplaan, !tunniplaan homme, !tunniplaan 15.01.2025"""
+        await ctx.send("🔍 Laen tunde...")
         
         try:
             scraper = VOCOScraper()
-            lessons = scraper.get_todays_lessons()
+            
+            # Determine which date to fetch
+            if date_param is None:
+                # Today
+                lessons = scraper.get_todays_lessons()
+                date_title = "Tänased tunnid (ITA25)"
+            elif date_param.lower() in ['homme', 'tomorrow']:
+                # Tomorrow
+                lessons = scraper.get_lessons_for_date('tomorrow')
+                date_title = "Homse tunnid (ITA25)"
+            else:
+                # Specific date
+                try:
+                    # Parse date in DD.MM.YYYY format
+                    from datetime import datetime
+                    parsed_date = datetime.strptime(date_param, '%d.%m.%Y')
+                    lessons = scraper.get_lessons_for_date(parsed_date.strftime('%d.%m.%Y'))
+                    date_title = f"Tunnid {date_param} (ITA25)"
+                except ValueError:
+                    await ctx.send("❌ Vale kuupäeva formaat! Kasuta: DD.MM.YYYY (nt. 15.01.2025)")
+                    return
             
             if not lessons:
-                await ctx.send("📅 **Täna tunde ei ole** - Vaba päev! 🎉")
+                if date_param is None:
+                    await ctx.send("📅 **Täna tunde ei ole** - Vaba päev! 🎉")
+                elif date_param.lower() in ['homme', 'tomorrow']:
+                    await ctx.send("📅 **Homme tunde ei ole** - Vaba päev! 🎉")
+                else:
+                    await ctx.send(f"📅 **{date_param} tunde ei ole** - Vaba päev! 🎉")
                 return
             
             # Sort lessons by time
@@ -77,7 +102,7 @@ def setup_info_commands(bot):
             
             # Create embed
             embed = discord.Embed(
-                title="📅 Tänased tunnid (ITA25)",
+                title=f"📅 {date_title}",
                 color=0x00ff00,
                 timestamp=datetime.now()
             )
