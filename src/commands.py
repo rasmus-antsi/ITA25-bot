@@ -55,11 +55,11 @@ def save_channels():
 def setup_info_commands(bot):
     """Setup info-related commands"""
     
-    @bot.command()
+    @bot.command(name='hello')
     async def hello(ctx):
         await ctx.send("Tere! Olen elus Dockeris 🐳")
 
-    @bot.command()
+    @bot.command(name='tunniplaan')
     async def tunniplaan(ctx):
         """Näita tänaseid tunde ITA25-le"""
         await ctx.send("🔍 Laen tänaseid tunde...")

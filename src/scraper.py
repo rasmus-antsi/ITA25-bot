@@ -154,9 +154,18 @@ class VOCOScraper:
     
     def _extract_room_info(self, title: str) -> str:
         """Extract room information from lesson title"""
-        room_match = re.search(r'[A-Z]\d+[A-Z]?\s*\([^)]+\)', title)
-        if room_match:
-            return room_match.group(0)
+        # Try different room patterns
+        room_patterns = [
+            r'[A-Z]\d+[A-Z]?\s*\([^)]+\)',  # A310 (Arvutiklass)
+            r'[A-Z]\d+[A-Z]?',  # A310
+            r'\([^)]+\)',  # (Arvutiklass)
+        ]
+        
+        for pattern in room_patterns:
+            room_match = re.search(pattern, title)
+            if room_match:
+                return room_match.group(0)
+        
         return 'Tundmatu ruum'
     
     def _extract_subject_name(self, title: str) -> str:
