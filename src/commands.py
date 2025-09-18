@@ -80,7 +80,6 @@ def setup_info_commands(bot):
                 # Specific date
                 try:
                     # Parse date in DD.MM.YYYY format
-                    from datetime import datetime
                     parsed_date = datetime.strptime(date_param, '%d.%m.%Y')
                     lessons = scraper.get_lessons_for_date(parsed_date.strftime('%d.%m.%Y'))
                     date_title = f"Tunnid {date_param} (ITA25)"
@@ -174,7 +173,7 @@ def setup_info_commands(bot):
             await ctx.send(f"❌ Viga tundide laadimisel: {e}")
             print(f"Error in tunniplaan command: {e}")
 
-    @bot.command()
+    @bot.command(name='info')
     async def info(ctx, *, message=None):
         """Saada olulist teavet info kanalile @everyone pingiga"""
         global info_channels
