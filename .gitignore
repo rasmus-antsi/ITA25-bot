@@ -110,6 +110,11 @@ ENV/
 env.bak/
 venv.bak/
 
+# Virtual environments (additional patterns)
+venv/
+__pycache__/
+*.pyc
+
 # Spyder project settings
 .spyderproject
 .spyproject
