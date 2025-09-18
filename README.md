@@ -1,82 +1,183 @@
 # ITA25 Discord Bot
 
-Discord bot for ITA25 group with lesson schedule and info management features.
+A Discord bot designed specifically for ITA25 students at VOCO (Viljandi Kutsehariduskeskus). The bot provides automatic lesson schedules, info announcements, and timetable management with a fully Estonian interface.
 
-## Features
+## 🚀 Features
 
-- **`!tunniplaan`** - Show today's lessons for ITA25
-- **`!tunniplaan-set [#channel]`** - Set channel for automatic daily lesson notifications (6 AM weekdays)
-- **`!tunniplaan-remove`** - Remove tunniplaan channel
-- **`!info [message/image]`** - Send important info to designated channel with @everyone ping
-- **`!info-set [#channel]`** - Set info channel
-- **`!info-remove`** - Remove info channel
-- **`!hello`** - Basic test command
+### 📅 Lesson Management
+- **Automatic daily posting**: Lesson schedules posted every weekday at 6:00 AM
+- **Manual lesson queries**: Check today's, tomorrow's, or specific date lessons
+- **Smart grouping**: Lessons at the same time are grouped together with multiple teachers/rooms
+- **Real-time data**: Fetches live data from VOCO's official timetable system
 
-## Docker Setup
+### 📢 Info System
+- **Info announcements**: Send important messages to designated info channels
+- **@everyone ping**: Automatic ping for important announcements
+- **Image support**: Send images along with messages
+- **Message cleanup**: Original command messages are automatically deleted
 
-### Using docker-compose (Recommended)
-
-1. Create `.env` file with your Discord token:
-   ```
-   DISCORD_TOKEN=your_discord_token_here
-   ```
-
-2. Run with docker-compose:
-   ```bash
-   docker-compose up -d
-   ```
-
-### Using Docker directly
-
-1. Build the image:
-   ```bash
-   docker build -t ita25-bot .
-   ```
-
-2. Run with persistent volume:
-   ```bash
-   docker run -d \
-     --name ita25-bot \
-     -e DISCORD_TOKEN=your_token \
-     -v bot_data:/app/data \
-     ita25-bot
-   ```
-
-## Data Persistence
-
-- Channel settings are stored in `/app/data/channels.json`
-- Data persists across container restarts and updates
-- Each Discord server has its own channel settings
-- `channels.json` is excluded from git to prevent data loss on updates
-
-## Commands
-
-All commands are in Estonian and require appropriate permissions.
-
-### Manual Commands
-- `!hello` - Test if bot is working
-- `!tunniplaan` - Show today's lessons (works anywhere)
-
-### Channel Management
-- `!tunniplaan-set [#channel]` - Set automatic lesson notifications channel
-- `!tunniplaan-remove` - Remove lesson notifications channel
-- `!info-set [#channel]` - Set info announcements channel
-- `!info-remove` - Remove info announcements channel
-
-### Info Commands
-- `!info [message]` - Send message to info channel with @everyone ping
-- `!info [image]` - Send image to info channel with @everyone ping
-
-## Automatic Features
-
-- **Daily lesson posting**: Every weekday at 6:00 AM to configured tunniplaan channels
-- **Server-specific settings**: Each Discord server has independent channel configurations
+### ⚙️ Server Management
+- **Server-specific settings**: Each Discord server has independent configurations
 - **Persistent storage**: Settings survive bot restarts and Docker deployments
+- **Permission-based**: Only users with "Manage Channels" permission can configure settings
 
-## Requirements
+## 🛠️ Installation
 
-- Python 3.11+
-- Discord.py
-- Requests
-- BeautifulSoup4
-- python-dotenv
+### Prerequisites
+- Python 3.8+ or Docker
+- Discord Bot Token
+- Discord server with appropriate permissions
+
+### Method 1: Local Installation
+
+1. **Clone the repository:**
+```bash
+git clone https://github.com/rasmus-antsi/ITA25-bot.git
+cd ITA25-bot
+```
+
+2. **Create virtual environment:**
+```bash
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+```
+
+3. **Install dependencies:**
+```bash
+pip install -r requirements.txt
+```
+
+4. **Create `.env` file:**
+```env
+DISCORD_TOKEN=your_discord_token_here
+```
+
+5. **Run the bot:**
+```bash
+python main.py
+```
+
+### Method 2: Docker (Recommended)
+
+1. **Create `.env` file:**
+```env
+DISCORD_TOKEN=your_discord_token_here
+```
+
+2. **Run with Docker Compose:**
+```bash
+docker-compose up -d
+```
+
+3. **Or build and run manually:**
+```bash
+docker build -t ita25-bot .
+docker run -d \
+  --name ita25-bot \
+  -e DISCORD_TOKEN=your_token \
+  -v bot_data:/app/data \
+  ita25-bot
+```
+
+## 📋 Commands
+
+### 📅 Tunniplaan (Timetable)
+- `!tunniplaan` - Näita tänaseid tunde (Show today's lessons)
+- `!tunniplaan homme` - Näita homme tunde (Show tomorrow's lessons)
+- `!tunniplaan DD.MM.YYYY` - Näita kindla kuupäeva tunde (Show specific date lessons)
+- `!tunniplaan-set [#kanal]` - Määra automaatne tunniplaan kanal (Set automatic lesson channel)
+- `!tunniplaan-remove` - Eemalda tunniplaan kanal (Remove lesson channel)
+
+### 📢 Info
+- `!info [sõnum]` - Saada sõnum info kanalile @everyone pingiga (Send message to info channel)
+- `!info-set [#kanal]` - Määra info kanal (Set info channel)
+- `!info-remove` - Eemalda info kanal (Remove info channel)
+
+### 🔧 Muud (Others)
+- `!hello` - Tervitus (Greeting)
+- `!help` - Näita kõiki käske (Show all commands)
+
+## ⚙️ Configuration
+
+### Data Storage
+- **Location**: `/app/data/channels.json` (Docker) or `./channels.json` (local)
+- **Format**: JSON with server-specific channel mappings
+- **Backup**: Automatically created and maintained
+
+### Permissions Required
+- **Bot permissions**: Send Messages, Embed Links, Manage Messages
+- **User permissions**: Manage Channels (for configuration commands)
+
+## 🏗️ Architecture
+
+### File Structure
+```
+ITA25-Bot/
+├── main.py                 # Bot entry point
+├── src/
+│   ├── commands.py         # Discord command handlers
+│   └── scraper.py          # VOCO timetable scraper
+├── requirements.txt        # Python dependencies
+├── Dockerfile             # Docker configuration
+├── docker-compose.yml     # Docker Compose setup
+└── README.md              # This file
+```
+
+### Key Components
+- **Discord.py**: Bot framework and Discord API integration
+- **BeautifulSoup4**: HTML parsing for VOCO timetable scraping
+- **Requests**: HTTP requests for data fetching
+- **Python-dotenv**: Environment variable management
+
+## 🔒 Security
+
+### Data Protection
+- ✅ No sensitive data in repository
+- ✅ Environment variables for tokens
+- ✅ `.gitignore` configured for data files
+- ✅ Server-specific data isolation
+
+### Files Ignored
+- `.env` - Environment variables
+- `channels.json` - Channel configuration data
+- `data/` - Persistent data directory
+- `venv/` - Virtual environment
+- `__pycache__/` - Python cache files
+
+## 🚀 Deployment
+
+### Production Setup
+1. Create Discord application and bot
+2. Set up environment variables
+3. Deploy using Docker Compose
+4. Configure channels using bot commands
+5. Monitor logs for any issues
+
+### Environment Variables
+```env
+DISCORD_TOKEN=your_discord_bot_token
+DATA_DIR=/app/data  # Optional, defaults to current directory
+```
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly
+5. Submit a pull request
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🆘 Support
+
+For issues, questions, or contributions, please:
+- Open an issue on GitHub
+- Contact the maintainer
+- Check the Discord server for community support
+
+---
+
+**Made with ❤️ for ITA25 students at VOCO**
