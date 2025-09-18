@@ -72,10 +72,10 @@ def setup_info_commands(bot):
                 # Today
                 lessons = scraper.get_todays_lessons()
                 date_title = "Tänased tunnid (ITA25)"
-            elif date_param.lower() in ['homme', 'tomorrow']:
+            elif date_param.lower() == 'homme':
                 # Tomorrow
                 lessons = scraper.get_lessons_for_date('tomorrow')
-                date_title = "Homse tunnid (ITA25)"
+                date_title = "Homsed tunnid (ITA25)"
             else:
                 # Specific date
                 try:
@@ -90,7 +90,7 @@ def setup_info_commands(bot):
             if not lessons:
                 if date_param is None:
                     await ctx.send("📅 **Täna tunde ei ole** - Vaba päev! 🎉")
-                elif date_param.lower() in ['homme', 'tomorrow']:
+                elif date_param.lower() == 'homme':
                     await ctx.send("📅 **Homme tunde ei ole** - Vaba päev! 🎉")
                 else:
                     await ctx.send(f"📅 **{date_param} tunde ei ole** - Vaba päev! 🎉")
