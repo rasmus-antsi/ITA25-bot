@@ -1,6 +1,6 @@
 # ITA25 Discord Bot
 
-A Discord bot designed specifically for ITA25 students at VOCO (Viljandi Kutsehariduskeskus). The bot provides automatic lesson schedules, info announcements, and timetable management with a fully Estonian interface.
+A Discord bot designed specifically for ITA25 students at VOCO (Tartu Kutsehariduskeskus). The bot provides automatic lesson schedules, info announcements, and timetable management with a fully Estonian interface.
 
 ## 🚀 Features
 
@@ -180,4 +180,4 @@ For issues, questions, or contributions, please:
 
 ---
 
-**Made with ❤️ for ITA25 students at VOCO**
+**Made with ❤️ by ITA25 student for ITA25 students at VOCO**
