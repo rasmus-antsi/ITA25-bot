@@ -55,12 +55,15 @@ def save_channels():
 def setup_info_commands(bot):
     """Setup info-related commands"""
     
+    # Remove the built-in help command
+    bot.remove_command('help')
+    
     @bot.command(name='hello')
     async def hello(ctx):
         await ctx.send("Tere! Olen elus Dockeris 🐳")
 
-    @bot.command(name='abi')
-    async def abi_command(ctx):
+    @bot.command(name='help')
+    async def help_command(ctx):
         """Näita kõiki saadaolevaid käske"""
         embed = discord.Embed(
             title="🤖 ITA25 Bot - Käsud",
@@ -98,7 +101,7 @@ def setup_info_commands(bot):
             name="🔧 Muud",
             value=(
                 "`!hello` - Tervitus\n"
-                "`!abi` - Näita seda abi sõnumit"
+                "`!help` - Näita seda abi sõnumit"
             ),
             inline=False
         )
