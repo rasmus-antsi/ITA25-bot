@@ -76,6 +76,77 @@ class VOCOScraper:
             print(f"Error fetching lessons: {e}")
             return []
     
+    def get_lessons_for_date(self, date_str: str) -> List[Dict]:
+        """Get lessons for a specific date for ITA25"""
+        try:
+            # Handle 'tomorrow' parameter
+            if date_str == 'tomorrow':
+                tomorrow = datetime.now() + timedelta(days=1)
+                date_str = tomorrow.strftime('%d.%m.%Y')
+            
+            # Fetch the schedule page
+            url = f"{self.base_url}/tunniplaan"
+            params = {
+                "oppegrupp": self.oppegrupp,
+                "nadal": date_str,
+                "no_export": 1
+            }
+            
+            response = self.session.get(url, params=params)
+            response.raise_for_status()
+            
+            # Parse the HTML
+            soup = BeautifulSoup(response.text, 'html.parser')
+            events = self._parse_events(soup)
+            
+            # Convert date_str to ISO format for comparison
+            if date_str == 'tomorrow':
+                target_date_iso = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
+            else:
+                try:
+                    target_date_iso = datetime.strptime(date_str, '%d.%m.%Y').strftime('%Y-%m-%d')
+                except ValueError:
+                    print(f"Invalid date format: {date_str}")
+                    return []
+            
+            # Filter for target date's lessons and remove "Tegevuspäev"
+            lessons = []
+            seen_lessons = set()
+            
+            for event in events:
+                event_date = event.get('date', '')
+                if event_date == target_date_iso:
+                    subject = event.get('subject', '')
+                    # Skip "Tegevuspäev" and empty subjects
+                    if subject and subject != 'Tegevuspäev' and subject.strip():
+                        # Group by time slot only (not subject name)
+                        start_time = event.get('start_time', '')
+                        end_time = event.get('end_time', '')
+                        lesson_key = f"{start_time}_{end_time}"
+                        if lesson_key not in seen_lessons:
+                            lessons.append(event)
+                            seen_lessons.add(lesson_key)
+                        else:
+                            # If same time slot, merge with existing lesson
+                            for i, existing_lesson in enumerate(lessons):
+                                if (existing_lesson.get('start_time') == start_time and
+                                    existing_lesson.get('end_time') == end_time):
+                                    # Add teacher and room to existing lesson
+                                    if 'teachers' not in existing_lesson:
+                                        existing_lesson['teachers'] = [existing_lesson.get('teacher', '')]
+                                        existing_lesson['rooms'] = [existing_lesson.get('room', '')]
+                                        existing_lesson['subjects'] = [existing_lesson.get('subject', '')]
+                                    existing_lesson['teachers'].append(event.get('teacher', ''))
+                                    existing_lesson['rooms'].append(event.get('room', ''))
+                                    existing_lesson['subjects'].append(subject)
+                                    break
+            
+            return lessons
+            
+        except Exception as e:
+            print(f"Error fetching lessons for {date_str}: {e}")
+            return []
+    
     def _parse_events(self, soup: BeautifulSoup) -> List[Dict]:
         """Parse events from HTML content"""
         events = []
