@@ -59,6 +59,66 @@ def setup_info_commands(bot):
     async def hello(ctx):
         await ctx.send("Tere! Olen elus Dockeris 🐳")
 
+    @bot.command(name='abi')
+    async def abi_command(ctx):
+        """Näita kõiki saadaolevaid käske"""
+        embed = discord.Embed(
+            title="🤖 ITA25 Bot - Käsud",
+            description="Siin on kõik saadaolevad käsud:",
+            color=0x00ff00,
+            timestamp=datetime.now()
+        )
+        
+        # Tunniplaan commands
+        embed.add_field(
+            name="📅 Tunniplaan",
+            value=(
+                "`!tunniplaan` - Näita tänaseid tunde\n"
+                "`!tunniplaan homme` - Näita homme tunde\n"
+                "`!tunniplaan DD.MM.YYYY` - Näita kindla kuupäeva tunde\n"
+                "`!tunniplaan-set [#kanal]` - Määra automaatne tunniplaan kanal\n"
+                "`!tunniplaan-remove` - Eemalda tunniplaan kanal"
+            ),
+            inline=False
+        )
+        
+        # Info commands
+        embed.add_field(
+            name="📢 Info",
+            value=(
+                "`!info [sõnum]` - Saada sõnum info kanalile @everyone pingiga\n"
+                "`!info-set [#kanal]` - Määra info kanal\n"
+                "`!info-remove` - Eemalda info kanal"
+            ),
+            inline=False
+        )
+        
+        # Other commands
+        embed.add_field(
+            name="🔧 Muud",
+            value=(
+                "`!hello` - Tervitus\n"
+                "`!abi` - Näita seda abi sõnumit"
+            ),
+            inline=False
+        )
+        
+        # Examples
+        embed.add_field(
+            name="💡 Näited",
+            value=(
+                "`!tunniplaan` - Tänased tunnid\n"
+                "`!tunniplaan homme` - Homse tunnid\n"
+                "`!tunniplaan 15.01.2025` - Tunnid 15. jaanuaril 2025\n"
+                "`!info Tähtis teade!` - Saada teade info kanalile"
+            ),
+            inline=False
+        )
+        
+        embed.set_footer(text="ITA25 Bot - Automaatne tunniplaan ja info süsteem")
+        
+        await ctx.send(embed=embed)
+
     @bot.command(name='tunniplaan')
     async def tunniplaan(ctx, *, date_param=None):
         """Näita tunde ITA25-le. Kasutamine: !tunniplaan, !tunniplaan homme, !tunniplaan 15.01.2025"""
