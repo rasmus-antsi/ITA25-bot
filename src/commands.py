@@ -106,7 +106,8 @@ def setup_info_commands(bot):
             name="🎭 Rollid",
             value=(
                 "`!vota-rollid @roll1 🎭1 @roll2 🎭2 True` - Loo rollide valimise sõnum\n"
-                "Lisa `True` kui kasutajad saavad valida ainult ühe rolli"
+                "Lisa `True` või `true` kui kasutajad saavad valida ainult ühe rolli\n"
+                "Kliki sama reaktsiooni uuesti, et rolli eemaldada"
             ),
             inline=False
         )
@@ -420,10 +421,10 @@ def setup_info_commands(bot):
             await ctx.send("❌ Vale kasutamine! Kasutamine: `!vota-rollid @roll1 🎭1 @roll2 🎭2 True`")
             return
         
-        # Check if "True" is specified for single selection
-        only_one = "True" in parts
+        # Check if "True" or "true" is specified for single selection
+        only_one = "True" in parts or "true" in parts
         if only_one:
-            parts = [p for p in parts if p != "True"]
+            parts = [p for p in parts if p not in ["True", "true"]]
         
         # Parse role-emoji pairs
         roles_data = []
@@ -538,6 +539,13 @@ def setup_info_commands(bot):
             return
         
         try:
+            # Check if user already has this role (toggle behavior)
+            if role in user.roles:
+                # User already has the role, remove it
+                await user.remove_roles(role)
+                print(f"✅ Toggled off role {role.name} for {user.name}")
+                return
+            
             # If only one role allowed, remove other roles first
             if message_data['only_one']:
                 # Remove all other roles from this message first
@@ -554,10 +562,11 @@ def setup_info_commands(bot):
             
             # Add the role to the user
             await user.add_roles(role)
+            print(f"✅ Added role {role.name} to {user.name}")
         except discord.Forbidden:
-            pass  # Silently fail if no permission
+            print(f"❌ Forbidden: Cannot manage role {role.name}")
         except Exception as e:
-            pass  # Silently fail on error
+            print(f"❌ Error managing role: {e}")
 
     @bot.event
     async def on_reaction_remove(reaction, user):
