@@ -3,7 +3,8 @@ import discord
 import asyncio
 from discord.ext import commands, tasks
 from dotenv import load_dotenv
-from src.commands import setup_info_commands, tunniplaan_channels, load_channels
+from src.commands import setup_info_commands, init_database
+from src.database import db
 from src.scraper import VOCOScraper
 from datetime import datetime, time
 
@@ -20,8 +21,8 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 @bot.event
 async def on_ready():
     print(f"✅ Logged in as {bot.user}")
-    # Load channels from database
-    await load_channels()
+    # Initialize database
+    await init_database()
     # Start the daily lesson task
     daily_lessons.start()
 
@@ -109,6 +110,9 @@ async def daily_lessons():
                 )
             
             embed.set_footer(text=f"Kokku {len(lessons)} tundi")
+        
+        # Get tunniplaan channels from database
+        _, tunniplaan_channels = await db.get_channels()
         
         # Send to all configured tunniplaan channels
         for guild_id, channel_id in tunniplaan_channels.items():
