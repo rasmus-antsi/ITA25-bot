@@ -3,7 +3,7 @@ import discord
 import asyncio
 from discord.ext import commands, tasks
 from dotenv import load_dotenv
-from src.commands import setup_info_commands, tunniplaan_channels
+from src.commands import setup_info_commands, tunniplaan_channels, load_channels
 from src.scraper import VOCOScraper
 from datetime import datetime, time
 
@@ -20,6 +20,8 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 @bot.event
 async def on_ready():
     print(f"✅ Logged in as {bot.user}")
+    # Load channels from database
+    await load_channels()
     # Start the daily lesson task
     daily_lessons.start()
 
