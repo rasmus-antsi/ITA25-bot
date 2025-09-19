@@ -105,7 +105,8 @@ def setup_info_commands(bot):
         embed.add_field(
             name="🎭 Rollid",
             value=(
-                "`!vota-rollid @roll1 🎭1 @roll2 🎭2 [ainult-üks]` - Loo rollide valimise sõnum"
+                "`!vota-rollid @roll1 🎭1 @roll2 🎭2 [ainult-üks]` - Loo rollide valimise sõnum\n"
+                "Lisa `ainult-üks` kui kasutajad saavad valida ainult ühe rolli"
             ),
             inline=False
         )
@@ -539,11 +540,17 @@ def setup_info_commands(bot):
         try:
             # If only one role allowed, remove other roles first
             if message_data['only_one']:
+                # Remove all other roles from this message first
                 for other_emoji, other_role_id in message_data['roles'].items():
                     if other_emoji != emoji_str:
                         other_role = reaction.message.guild.get_role(other_role_id)
                         if other_role and other_role in user.roles:
                             await user.remove_roles(other_role)
+                            # Remove the reaction for the other role
+                            try:
+                                await reaction.message.remove_reaction(other_emoji, user)
+                            except:
+                                pass
             
             # Add the role to the user
             await user.add_roles(role)
