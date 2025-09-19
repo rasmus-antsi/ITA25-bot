@@ -616,5 +616,55 @@ def setup_info_commands(bot):
         except Exception as e:
             print(f"❌ Error removing role: {e}")
 
+    @bot.event
+    async def on_raw_reaction_remove(payload):
+        """Handle raw reaction removal - more reliable than on_reaction_remove"""
+        if payload.user_id == bot.user.id:
+            return
+        
+        print(f"🔍 Raw reaction removed: {payload.emoji} by user {payload.user_id}")
+        
+        guild = bot.get_guild(payload.guild_id)
+        if not guild:
+            return
+        
+        user = guild.get_member(payload.user_id)
+        if not user:
+            return
+        
+        message = await guild.get_channel(payload.channel_id).fetch_message(payload.message_id)
+        if not message or not message.embeds:
+            return
+        
+        embed = message.embeds[0]
+        if embed.title != "🎭 Vali oma rollid":
+            return
+        
+        guild_id = str(payload.guild_id)
+        if guild_id not in role_management or 'messages' not in role_management[guild_id] or str(payload.message_id) not in role_management[guild_id]['messages']:
+            return
+        
+        message_data = role_management[guild_id]['messages'][str(payload.message_id)]
+        emoji_str = str(payload.emoji)
+        
+        if emoji_str not in message_data['roles']:
+            return
+        
+        role_id = message_data['roles'][emoji_str]
+        role = guild.get_role(role_id)
+        
+        if not role:
+            return
+        
+        print(f"✅ Raw: Removing role {role.name} from {user.name}")
+        
+        try:
+            await user.remove_roles(role)
+            print(f"✅ Raw: Successfully removed role {role.name} from {user.name}")
+        except discord.Forbidden:
+            print(f"❌ Raw: Forbidden: Cannot remove role {role.name} from {user.name}")
+        except Exception as e:
+            print(f"❌ Raw: Error removing role: {e}")
+
     # Load channels on startup
     load_channels()
