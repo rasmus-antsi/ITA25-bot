@@ -1,6 +1,7 @@
 import discord
 import os
 import re
+import json
 from datetime import datetime
 from .scraper import VOCOScraper
 
@@ -8,32 +9,36 @@ from .scraper import VOCOScraper
 info_channels = {}
 # Store the tunniplaan channel IDs per server (guild)
 tunniplaan_channels = {}
+# Store role management data per server (guild)
+role_management = {}
 
 def load_channels():
-    """Load saved channel IDs for all servers"""
-    global info_channels, tunniplaan_channels
+    """Load saved channel IDs and role management for all servers"""
+    global info_channels, tunniplaan_channels, role_management
     try:
         # Try to load from file first (use data directory if available)
         data_dir = os.getenv('DATA_DIR', '.')
         file_path = os.path.join(data_dir, 'channels.json')
         
-        import json
         with open(file_path, 'r') as f:
             data = json.load(f)
             info_channels = data.get('info_channels', {})
             tunniplaan_channels = data.get('tunniplaan_channels', {})
-        print(f"📢 Channels loaded from file: {len(info_channels)} info, {len(tunniplaan_channels)} tunniplaan servers")
+            role_management = data.get('role_management', {})
+        print(f"📢 Channels loaded from file: {len(info_channels)} info, {len(tunniplaan_channels)} tunniplaan, {len(role_management)} role servers")
     except FileNotFoundError:
         print("📢 No channels set yet")
         info_channels = {}
         tunniplaan_channels = {}
+        role_management = {}
     except Exception as e:
         print(f"⚠️ Error loading channels: {e}")
         info_channels = {}
         tunniplaan_channels = {}
+        role_management = {}
 
 def save_channels():
-    """Save all channel settings to file"""
+    """Save all channel settings and role management to file"""
     try:
         data_dir = os.getenv('DATA_DIR', '.')
         file_path = os.path.join(data_dir, 'channels.json')
@@ -41,10 +46,10 @@ def save_channels():
         # Ensure data directory exists
         os.makedirs(data_dir, exist_ok=True)
         
-        import json
         data = {
             'info_channels': info_channels,
-            'tunniplaan_channels': tunniplaan_channels
+            'tunniplaan_channels': tunniplaan_channels,
+            'role_management': role_management
         }
         with open(file_path, 'w') as f:
             json.dump(data, f)
@@ -96,6 +101,17 @@ def setup_info_commands(bot):
             inline=False
         )
         
+        # Role commands
+        embed.add_field(
+            name="🎭 Rollid",
+            value=(
+                "`!rollid` - Näita saadaolevaid rolle ja reaktsioone\n"
+                "`!rollid-lisa @roll 🎭 [kirjeldus]` - Lisa uus roll\n"
+                "`!rollid-eemalda 🎭` - Eemalda roll"
+            ),
+            inline=False
+        )
+        
         # Other commands
         embed.add_field(
             name="🔧 Muud",
@@ -113,7 +129,8 @@ def setup_info_commands(bot):
                 "`!tunniplaan` - Tänased tunnid\n"
                 "`!tunniplaan homme` - Homse tunnid\n"
                 "`!tunniplaan 15.01.2025` - Tunnid 15. jaanuaril 2025\n"
-                "`!info Tähtis teade!` - Saada teade info kanalile"
+                "`!info Tähtis teade!` - Saada teade info kanalile\n"
+                "`!rollid-lisa @Student 🎓 ITA25 õpilane` - Lisa õpilase roll"
             ),
             inline=False
         )
@@ -389,6 +406,188 @@ def setup_info_commands(bot):
         save_channels()
         
         await ctx.send(f"✅ Tunniplaan kanal eemaldatud: {channel_mention}")
+
+    @bot.command(name='rollid')
+    async def rollid(ctx):
+        """Näita saadaolevaid rolle ja nende reaktsioone"""
+        global role_management
+        
+        guild_id = str(ctx.guild.id)
+        if guild_id not in role_management or not role_management[guild_id].get('roles'):
+            await ctx.send("❌ Pole ühtegi rolli määratud! Kasuta `!rollid-lisa` rollide lisamiseks.")
+            return
+        
+        embed = discord.Embed(
+            title="🎭 Saadaolevad rollid",
+            description="Kliki reaktsioonile, et rolli saada või eemaldada:",
+            color=0x00ff00,
+            timestamp=datetime.now()
+        )
+        
+        roles_data = role_management[guild_id]['roles']
+        for emoji, role_info in roles_data.items():
+            role = ctx.guild.get_role(role_info['role_id'])
+            if role:
+                embed.add_field(
+                    name=f"{emoji} {role.name}",
+                    value=f"Kirjeldus: {role_info.get('description', 'Pole kirjeldust')}",
+                    inline=False
+                )
+        
+        embed.set_footer(text="Kasuta !rollid-lisa uute rollide lisamiseks")
+        
+        message = await ctx.send(embed=embed)
+        
+        # Add reactions for each role
+        for emoji in roles_data.keys():
+            try:
+                await message.add_reaction(emoji)
+            except discord.HTTPException:
+                pass
+
+    @bot.command(name='rollid-lisa')
+    async def rollid_lisa(ctx, role: discord.Role, emoji: str, *, description: str = ""):
+        """Lisa uus roll reaktsiooniga. Kasutamine: !rollid-lisa @roll 🎭 Kirjeldus"""
+        global role_management
+        
+        # Check if user has permission to manage roles
+        if not ctx.author.guild_permissions.manage_roles:
+            await ctx.send("❌ Sul on vaja 'Rollide haldamine' õigust rollide lisamiseks.")
+            return
+        
+        # Check if bot can manage this role
+        if role.position >= ctx.guild.me.top_role.position:
+            await ctx.send("❌ Ma ei saa hallata seda rolli - see on minu rollist kõrgemal!")
+            return
+        
+        guild_id = str(ctx.guild.id)
+        if guild_id not in role_management:
+            role_management[guild_id] = {'roles': {}}
+        
+        # Check if emoji is already used
+        if emoji in role_management[guild_id]['roles']:
+            await ctx.send(f"❌ Reaktsioon {emoji} on juba kasutusel!")
+            return
+        
+        # Check if role is already assigned
+        for existing_emoji, role_info in role_management[guild_id]['roles'].items():
+            if role_info['role_id'] == role.id:
+                await ctx.send(f"❌ Roll {role.name} on juba määratud reaktsiooniga {existing_emoji}!")
+                return
+        
+        # Add the role
+        role_management[guild_id]['roles'][emoji] = {
+            'role_id': role.id,
+            'description': description
+        }
+        
+        save_channels()
+        
+        await ctx.send(f"✅ Roll {role.mention} lisatud reaktsiooniga {emoji}")
+
+    @bot.command(name='rollid-eemalda')
+    async def rollid_eemalda(ctx, emoji: str):
+        """Eemalda roll reaktsiooniga. Kasutamine: !rollid-eemalda 🎭"""
+        global role_management
+        
+        # Check if user has permission to manage roles
+        if not ctx.author.guild_permissions.manage_roles:
+            await ctx.send("❌ Sul on vaja 'Rollide haldamine' õigust rollide eemaldamiseks.")
+            return
+        
+        guild_id = str(ctx.guild.id)
+        if guild_id not in role_management or emoji not in role_management[guild_id]['roles']:
+            await ctx.send(f"❌ Reaktsioon {emoji} pole määratud!")
+            return
+        
+        role_info = role_management[guild_id]['roles'][emoji]
+        role = ctx.guild.get_role(role_info['role_id'])
+        role_name = role.name if role else "Tundmatu roll"
+        
+        # Remove the role
+        del role_management[guild_id]['roles'][emoji]
+        
+        # If no more roles, remove the guild entry
+        if not role_management[guild_id]['roles']:
+            del role_management[guild_id]
+        
+        save_channels()
+        
+        await ctx.send(f"✅ Roll {role_name} eemaldatud reaktsiooniga {emoji}")
+
+    @bot.event
+    async def on_reaction_add(reaction, user):
+        """Handle role assignment when user reacts"""
+        if user.bot:
+            return
+        
+        # Check if this is a role management message
+        if not reaction.message.embeds:
+            return
+        
+        embed = reaction.message.embeds[0]
+        if embed.title != "🎭 Saadaolevad rollid":
+            return
+        
+        guild_id = str(reaction.message.guild.id)
+        if guild_id not in role_management:
+            return
+        
+        emoji_str = str(reaction.emoji)
+        if emoji_str not in role_management[guild_id]['roles']:
+            return
+        
+        role_info = role_management[guild_id]['roles'][emoji_str]
+        role = reaction.message.guild.get_role(role_info['role_id'])
+        
+        if not role:
+            return
+        
+        try:
+            # Add the role to the user
+            await user.add_roles(role)
+            await user.send(f"✅ Sa said rolli: **{role.name}**")
+        except discord.Forbidden:
+            await user.send("❌ Ma ei saa sulle rolli anda - kontrolli õigusi!")
+        except Exception as e:
+            await user.send(f"❌ Viga rolli andmisel: {e}")
+
+    @bot.event
+    async def on_reaction_remove(reaction, user):
+        """Handle role removal when user removes reaction"""
+        if user.bot:
+            return
+        
+        # Check if this is a role management message
+        if not reaction.message.embeds:
+            return
+        
+        embed = reaction.message.embeds[0]
+        if embed.title != "🎭 Saadaolevad rollid":
+            return
+        
+        guild_id = str(reaction.message.guild.id)
+        if guild_id not in role_management:
+            return
+        
+        emoji_str = str(reaction.emoji)
+        if emoji_str not in role_management[guild_id]['roles']:
+            return
+        
+        role_info = role_management[guild_id]['roles'][emoji_str]
+        role = reaction.message.guild.get_role(role_info['role_id'])
+        
+        if not role:
+            return
+        
+        try:
+            # Remove the role from the user
+            await user.remove_roles(role)
+            await user.send(f"✅ Roll eemaldatud: **{role.name}**")
+        except discord.Forbidden:
+            await user.send("❌ Ma ei saa sul rolli eemaldada - kontrolli õigusi!")
+        except Exception as e:
+            await user.send(f"❌ Viga rolli eemaldamisel: {e}")
 
     # Load channels on startup
     load_channels()
