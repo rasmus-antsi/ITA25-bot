@@ -565,37 +565,47 @@ def setup_info_commands(bot):
         if user.bot:
             return
         
+        print(f"🔍 Reaction removed: {reaction.emoji} by {user.name}")
+        
         # Check if this is a role selection message
         if not reaction.message.embeds:
+            print("❌ No embeds in message")
             return
         
         embed = reaction.message.embeds[0]
         if embed.title != "🎭 Vali oma rollid":
+            print(f"❌ Wrong embed title: {embed.title}")
             return
         
         guild_id = str(reaction.message.guild.id)
         if guild_id not in role_management or 'messages' not in role_management[guild_id] or str(reaction.message.id) not in role_management[guild_id]['messages']:
+            print(f"❌ Message not found in role_management: {guild_id}, {reaction.message.id}")
             return
         
         message_data = role_management[guild_id]['messages'][str(reaction.message.id)]
         emoji_str = str(reaction.emoji)
         
         if emoji_str not in message_data['roles']:
+            print(f"❌ Emoji not found in roles: {emoji_str}")
             return
         
         role_id = message_data['roles'][emoji_str]
         role = reaction.message.guild.get_role(role_id)
         
         if not role:
+            print(f"❌ Role not found: {role_id}")
             return
+        
+        print(f"✅ Removing role {role.name} from {user.name}")
         
         try:
             # Remove the role from the user
             await user.remove_roles(role)
+            print(f"✅ Successfully removed role {role.name} from {user.name}")
         except discord.Forbidden:
-            pass  # Silently fail if no permission
+            print(f"❌ Forbidden: Cannot remove role {role.name} from {user.name}")
         except Exception as e:
-            pass  # Silently fail on error
+            print(f"❌ Error removing role: {e}")
 
     # Load channels on startup
     load_channels()
