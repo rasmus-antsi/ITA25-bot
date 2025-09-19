@@ -631,8 +631,13 @@ def setup_info_commands(bot):
         
         user = guild.get_member(payload.user_id)
         if not user:
-            print("❌ Raw: User not found")
-            return
+            # Try to fetch the user if not in cache
+            try:
+                user = await guild.fetch_member(payload.user_id)
+                print(f"✅ Raw: Fetched user {user.name}")
+            except:
+                print("❌ Raw: User not found and cannot fetch")
+                return
         
         message = await guild.get_channel(payload.channel_id).fetch_message(payload.message_id)
         if not message or not message.embeds:
