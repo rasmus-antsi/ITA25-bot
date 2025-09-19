@@ -494,6 +494,8 @@ def setup_info_commands(bot):
         guild_id = str(ctx.guild.id)
         if guild_id not in role_management:
             role_management[guild_id] = {'messages': {}}
+        elif 'messages' not in role_management[guild_id]:
+            role_management[guild_id]['messages'] = {}
         
         role_management[guild_id]['messages'][str(message.id)] = {
             'roles': {emoji: role.id for role, emoji in roles_data},
@@ -519,7 +521,7 @@ def setup_info_commands(bot):
             return
         
         guild_id = str(reaction.message.guild.id)
-        if guild_id not in role_management or str(reaction.message.id) not in role_management[guild_id]['messages']:
+        if guild_id not in role_management or 'messages' not in role_management[guild_id] or str(reaction.message.id) not in role_management[guild_id]['messages']:
             return
         
         message_data = role_management[guild_id]['messages'][str(reaction.message.id)]
@@ -566,7 +568,7 @@ def setup_info_commands(bot):
             return
         
         guild_id = str(reaction.message.guild.id)
-        if guild_id not in role_management or str(reaction.message.id) not in role_management[guild_id]['messages']:
+        if guild_id not in role_management or 'messages' not in role_management[guild_id] or str(reaction.message.id) not in role_management[guild_id]['messages']:
             return
         
         message_data = role_management[guild_id]['messages'][str(reaction.message.id)]
