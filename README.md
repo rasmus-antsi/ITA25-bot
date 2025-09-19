@@ -21,6 +21,12 @@ A Discord bot designed specifically for ITA25 students at VOCO (Tartu Kutseharid
 - **Persistent storage**: Settings survive bot restarts and Docker deployments
 - **Permission-based**: Only users with "Manage Channels" permission can configure settings
 
+### 🎭 Role Management
+- **Reaction-based roles**: Users can get/remove roles by clicking reactions
+- **Easy setup**: Simple commands to add/remove roles with emojis
+- **Role descriptions**: Add descriptions to help users understand roles
+- **Permission checks**: Only users with "Manage Roles" permission can configure
+
 ## 🛠️ Installation
 
 ### Prerequisites
@@ -92,6 +98,11 @@ docker run -d \
 - `!info [sõnum]` - Saada sõnum info kanalile @everyone pingiga (Send message to info channel)
 - `!info-set [#kanal]` - Määra info kanal (Set info channel)
 - `!info-remove` - Eemalda info kanal (Remove info channel)
+
+### 🎭 Rollid (Roles)
+- `!rollid` - Näita saadaolevaid rolle ja reaktsioone (Show available roles and reactions)
+- `!rollid-lisa @roll 🎭 [kirjeldus]` - Lisa uus roll (Add new role)
+- `!rollid-eemalda 🎭` - Eemalda roll (Remove role)
 
 ### 🔧 Muud (Others)
 - `!hello` - Tervitus (Greeting)
