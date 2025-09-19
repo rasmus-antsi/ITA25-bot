@@ -626,34 +626,44 @@ def setup_info_commands(bot):
         
         guild = bot.get_guild(payload.guild_id)
         if not guild:
+            print("❌ Raw: Guild not found")
             return
         
         user = guild.get_member(payload.user_id)
         if not user:
+            print("❌ Raw: User not found")
             return
         
         message = await guild.get_channel(payload.channel_id).fetch_message(payload.message_id)
         if not message or not message.embeds:
+            print("❌ Raw: Message or embeds not found")
             return
         
         embed = message.embeds[0]
         if embed.title != "🎭 Vali oma rollid":
+            print(f"❌ Raw: Wrong embed title: {embed.title}")
             return
         
         guild_id = str(payload.guild_id)
         if guild_id not in role_management or 'messages' not in role_management[guild_id] or str(payload.message_id) not in role_management[guild_id]['messages']:
+            print(f"❌ Raw: Message not found in role_management: {guild_id}, {payload.message_id}")
             return
         
         message_data = role_management[guild_id]['messages'][str(payload.message_id)]
         emoji_str = str(payload.emoji)
         
+        print(f"🔍 Raw: Looking for emoji: {emoji_str}")
+        print(f"🔍 Raw: Available emojis: {list(message_data['roles'].keys())}")
+        
         if emoji_str not in message_data['roles']:
+            print(f"❌ Raw: Emoji not found in roles: {emoji_str}")
             return
         
         role_id = message_data['roles'][emoji_str]
         role = guild.get_role(role_id)
         
         if not role:
+            print(f"❌ Raw: Role not found: {role_id}")
             return
         
         print(f"✅ Raw: Removing role {role.name} from {user.name}")
