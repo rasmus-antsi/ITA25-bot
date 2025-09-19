@@ -105,8 +105,8 @@ def setup_info_commands(bot):
         embed.add_field(
             name="🎭 Rollid",
             value=(
-                "`!vota-rollid @roll1 🎭1 @roll2 🎭2 [ainult-üks]` - Loo rollide valimise sõnum\n"
-                "Lisa `ainult-üks` kui kasutajad saavad valida ainult ühe rolli"
+                "`!vota-rollid @roll1 🎭1 @roll2 🎭2 True` - Loo rollide valimise sõnum\n"
+                "Lisa `True` kui kasutajad saavad valida ainult ühe rolli"
             ),
             inline=False
         )
@@ -129,7 +129,7 @@ def setup_info_commands(bot):
                 "`!tunniplaan homme` - Homse tunnid\n"
                 "`!tunniplaan 15.01.2025` - Tunnid 15. jaanuaril 2025\n"
                 "`!info Tähtis teade!` - Saada teade info kanalile\n"
-                "`!vota-rollid @Student 🎓 @Mentor 👨‍🏫 ainult-üks` - Loo rollide valimine"
+                "`!vota-rollid @Student 🎓 @Mentor 👨‍🏫 True` - Loo rollide valimine"
             ),
             inline=False
         )
@@ -408,7 +408,7 @@ def setup_info_commands(bot):
 
     @bot.command(name='vota-rollid')
     async def vota_rollid(ctx, *, args):
-        """Loo rollide valimise sõnum. Kasutamine: !vota-rollid @roll1 🎭1 @roll2 🎭2 [ainult-üks]"""
+        """Loo rollide valimise sõnum. Kasutamine: !vota-rollid @roll1 🎭1 @roll2 🎭2 True"""
         # Check if user has permission to manage roles
         if not ctx.author.guild_permissions.manage_roles:
             await ctx.send("❌ Sul on vaja 'Rollide haldamine' õigust rollide valimise sõnumi loomiseks.")
@@ -417,13 +417,13 @@ def setup_info_commands(bot):
         # Parse arguments
         parts = args.split()
         if len(parts) < 2:
-            await ctx.send("❌ Vale kasutamine! Kasutamine: `!vota-rollid @roll1 🎭1 @roll2 🎭2 [ainult-üks]`")
+            await ctx.send("❌ Vale kasutamine! Kasutamine: `!vota-rollid @roll1 🎭1 @roll2 🎭2 True`")
             return
         
-        # Check if "ainult-üks" is specified
-        only_one = "ainult-üks" in parts
+        # Check if "True" is specified for single selection
+        only_one = "True" in parts
         if only_one:
-            parts = [p for p in parts if p != "ainult-üks"]
+            parts = [p for p in parts if p != "True"]
         
         # Parse role-emoji pairs
         roles_data = []
@@ -554,11 +554,10 @@ def setup_info_commands(bot):
             
             # Add the role to the user
             await user.add_roles(role)
-            await user.send(f"✅ Sa said rolli: **{role.name}**")
         except discord.Forbidden:
-            await user.send("❌ Ma ei saa sulle rolli anda - kontrolli õigusi!")
+            pass  # Silently fail if no permission
         except Exception as e:
-            await user.send(f"❌ Viga rolli andmisel: {e}")
+            pass  # Silently fail on error
 
     @bot.event
     async def on_reaction_remove(reaction, user):
@@ -593,11 +592,10 @@ def setup_info_commands(bot):
         try:
             # Remove the role from the user
             await user.remove_roles(role)
-            await user.send(f"✅ Roll eemaldatud: **{role.name}**")
         except discord.Forbidden:
-            await user.send("❌ Ma ei saa sul rolli eemaldada - kontrolli õigusi!")
+            pass  # Silently fail if no permission
         except Exception as e:
-            await user.send(f"❌ Viga rolli eemaldamisel: {e}")
+            pass  # Silently fail on error
 
     # Load channels on startup
     load_channels()
