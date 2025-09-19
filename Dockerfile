@@ -20,4 +20,7 @@ ENV DATA_DIR=/app/data
 # Ensure data directory has proper permissions
 RUN chmod 755 /app/data
 
+# Set database path
+ENV DB_PATH=/app/data/bot_data.db
+
 CMD ["python", "main.py"]

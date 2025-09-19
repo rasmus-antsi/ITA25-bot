@@ -6,11 +6,12 @@ services:
     env_file:
       - .env
     volumes:
-      # Mount persistent data directory for channel settings
+      # Mount persistent data directory for SQLite database and settings
       - bot_data:/app/data
     restart: unless-stopped
     environment:
       - DATA_DIR=/app/data
+      - DB_PATH=/app/data/bot_data.db
 
 volumes:
   bot_data:

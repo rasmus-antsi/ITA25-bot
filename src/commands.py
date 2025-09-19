@@ -4,58 +4,41 @@ import re
 import json
 from datetime import datetime
 from .scraper import VOCOScraper
+from .database import db
 
 # Store the info channel IDs per server (guild)
 info_channels = {}
 # Store the tunniplaan channel IDs per server (guild)
 tunniplaan_channels = {}
-# Store role management data per server (guild)
-role_management = {}
 
-def load_channels():
-    """Load saved channel IDs and role management for all servers"""
-    global info_channels, tunniplaan_channels, role_management
+async def load_channels():
+    """Load saved channel IDs from SQLite database"""
+    global info_channels, tunniplaan_channels
+    
     try:
-        # Try to load from file first (use data directory if available)
-        data_dir = os.getenv('DATA_DIR', '.')
-        file_path = os.path.join(data_dir, 'channels.json')
+        # Initialize database
+        await db.init_db()
         
-        with open(file_path, 'r') as f:
-            data = json.load(f)
-            info_channels = data.get('info_channels', {})
-            tunniplaan_channels = data.get('tunniplaan_channels', {})
-            role_management = data.get('role_management', {})
-        print(f"📢 Channels loaded from file: {len(info_channels)} info, {len(tunniplaan_channels)} tunniplaan, {len(role_management)} role servers")
-    except FileNotFoundError:
-        print("📢 No channels set yet")
-        info_channels = {}
-        tunniplaan_channels = {}
-        role_management = {}
+        # Migrate from JSON if it exists
+        data_dir = os.getenv('DATA_DIR', '.')
+        json_file_path = os.path.join(data_dir, 'channels.json')
+        await db.migrate_from_json(json_file_path)
+        
+        # Load channels from database
+        info_channels, tunniplaan_channels = await db.get_channels()
+        print(f"📢 Channels loaded from database: {len(info_channels)} info, {len(tunniplaan_channels)} tunniplaan servers")
     except Exception as e:
         print(f"⚠️ Error loading channels: {e}")
         info_channels = {}
         tunniplaan_channels = {}
-        role_management = {}
 
-def save_channels():
-    """Save all channel settings and role management to file"""
+async def save_channels():
+    """Save all channel settings to SQLite database"""
     try:
-        data_dir = os.getenv('DATA_DIR', '.')
-        file_path = os.path.join(data_dir, 'channels.json')
-        
-        # Ensure data directory exists
-        os.makedirs(data_dir, exist_ok=True)
-        
-        data = {
-            'info_channels': info_channels,
-            'tunniplaan_channels': tunniplaan_channels,
-            'role_management': role_management
-        }
-        with open(file_path, 'w') as f:
-            json.dump(data, f)
-        print(f"📢 Channels saved to file: {file_path}")
+        await db.save_channels(info_channels, tunniplaan_channels)
+        print(f"📢 Channels saved to database")
     except Exception as e:
-        print(f"⚠️ Could not save to file: {e}")
+        print(f"⚠️ Could not save to database: {e}")
 
 def setup_info_commands(bot):
     """Setup info-related commands"""
@@ -326,7 +309,7 @@ def setup_info_commands(bot):
         await ctx.send(f"✅ Info kanal määratud {channel.mention}")
         
         # Save to file for persistence (automatic, no user notification)
-        save_channels()
+        await save_channels()
 
     @bot.command(name='info-remove')
     async def info_remove(ctx):
@@ -352,7 +335,7 @@ def setup_info_commands(bot):
         del info_channels[guild_id]
         
         # Save updated channels to file
-        save_channels()
+        await save_channels()
         
         await ctx.send(f"✅ Info kanal eemaldatud: {channel_mention}")
 
@@ -377,7 +360,7 @@ def setup_info_commands(bot):
         await ctx.send("📅 Automaatsed tunniplaan sõnumid saadetakse igal tööpäeval kell 06:00")
         
         # Save to file for persistence (automatic, no user notification)
-        save_channels()
+        await save_channels()
 
     @bot.command(name='tunniplaan-remove')
     async def tunniplaan_remove(ctx):
@@ -403,7 +386,7 @@ def setup_info_commands(bot):
         del tunniplaan_channels[guild_id]
         
         # Save updated channels to file
-        save_channels()
+        await save_channels()
         
         await ctx.send(f"✅ Tunniplaan kanal eemaldatud: {channel_mention}")
 
@@ -492,21 +475,17 @@ def setup_info_commands(bot):
             except discord.HTTPException:
                 pass
         
-        # Store role data for this message
+        # Store role data for this message in database
         guild_id = str(ctx.guild.id)
-        if guild_id not in role_management:
-            role_management[guild_id] = {'messages': {}}
-        elif 'messages' not in role_management[guild_id]:
-            role_management[guild_id]['messages'] = {}
+        roles_dict = {emoji: {'role_id': role.id, 'role_name': role.name} for role, emoji in roles_data}
         
-        role_management[guild_id]['messages'][str(message.id)] = {
-            'roles': {emoji: role.id for role, emoji in roles_data},
-            'only_one': only_one
-        }
-        
-        save_channels()
-        
-        await ctx.send("✅ Rollide valimise sõnum loodud!")
+        await db.save_role_message(
+            str(message.id),
+            guild_id,
+            ctx.channel.id,
+            only_one,
+            roles_dict
+        )
 
     @bot.event
     async def on_reaction_add(reaction, user):
@@ -522,11 +501,10 @@ def setup_info_commands(bot):
         if embed.title != "🎭 Vali oma rollid":
             return
         
-        guild_id = str(reaction.message.guild.id)
-        if guild_id not in role_management or 'messages' not in role_management[guild_id] or str(reaction.message.id) not in role_management[guild_id]['messages']:
+        # Get role message data from database
+        message_data = await db.get_role_message(str(reaction.message.id))
+        if not message_data:
             return
-        
-        message_data = role_management[guild_id]['messages'][str(reaction.message.id)]
         emoji_str = str(reaction.emoji)
         
         if emoji_str not in message_data['roles']:
@@ -586,12 +564,11 @@ def setup_info_commands(bot):
             print(f"❌ Wrong embed title: {embed.title}")
             return
         
-        guild_id = str(reaction.message.guild.id)
-        if guild_id not in role_management or 'messages' not in role_management[guild_id] or str(reaction.message.id) not in role_management[guild_id]['messages']:
-            print(f"❌ Message not found in role_management: {guild_id}, {reaction.message.id}")
+        # Get role message data from database
+        message_data = await db.get_role_message(str(reaction.message.id))
+        if not message_data:
+            print(f"❌ Message not found in database: {reaction.message.id}")
             return
-        
-        message_data = role_management[guild_id]['messages'][str(reaction.message.id)]
         emoji_str = str(reaction.emoji)
         
         if emoji_str not in message_data['roles']:
@@ -649,12 +626,11 @@ def setup_info_commands(bot):
             print(f"❌ Raw: Wrong embed title: {embed.title}")
             return
         
-        guild_id = str(payload.guild_id)
-        if guild_id not in role_management or 'messages' not in role_management[guild_id] or str(payload.message_id) not in role_management[guild_id]['messages']:
-            print(f"❌ Raw: Message not found in role_management: {guild_id}, {payload.message_id}")
+        # Get role message data from database
+        message_data = await db.get_role_message(str(payload.message_id))
+        if not message_data:
+            print(f"❌ Raw: Message not found in database: {payload.message_id}")
             return
-        
-        message_data = role_management[guild_id]['messages'][str(payload.message_id)]
         emoji_str = str(payload.emoji)
         
         print(f"🔍 Raw: Looking for emoji: {emoji_str}")
@@ -681,5 +657,4 @@ def setup_info_commands(bot):
         except Exception as e:
             print(f"❌ Raw: Error removing role: {e}")
 
-    # Load channels on startup
-    load_channels()
+    # Load channels on startup will be called from main.py
