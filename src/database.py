@@ -151,7 +151,7 @@ class Database:
             await db.commit()
     
     async def migrate_from_json(self, json_file_path: str):
-        """Migrate data from existing JSON file to SQLite"""
+        """Migrate data from existing JSON file to SQLite (if exists)"""
         try:
             with open(json_file_path, 'r') as f:
                 data = json.load(f)

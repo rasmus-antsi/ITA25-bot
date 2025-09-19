@@ -1,20 +1,12 @@
 import discord
 import os
 import re
-import json
 from datetime import datetime
 from .scraper import VOCOScraper
 from .database import db
 
-# Store the info channel IDs per server (guild)
-info_channels = {}
-# Store the tunniplaan channel IDs per server (guild)
-tunniplaan_channels = {}
-
-async def load_channels():
-    """Load saved channel IDs from SQLite database"""
-    global info_channels, tunniplaan_channels
-    
+async def init_database():
+    """Initialize the database and migrate from JSON if needed"""
     try:
         # Initialize database
         await db.init_db()
@@ -24,21 +16,9 @@ async def load_channels():
         json_file_path = os.path.join(data_dir, 'channels.json')
         await db.migrate_from_json(json_file_path)
         
-        # Load channels from database
-        info_channels, tunniplaan_channels = await db.get_channels()
-        print(f"📢 Channels loaded from database: {len(info_channels)} info, {len(tunniplaan_channels)} tunniplaan servers")
+        print(f"📢 Database initialized successfully")
     except Exception as e:
-        print(f"⚠️ Error loading channels: {e}")
-        info_channels = {}
-        tunniplaan_channels = {}
-
-async def save_channels():
-    """Save all channel settings to SQLite database"""
-    try:
-        await db.save_channels(info_channels, tunniplaan_channels)
-        print(f"📢 Channels saved to database")
-    except Exception as e:
-        print(f"⚠️ Could not save to database: {e}")
+        print(f"⚠️ Error initializing database: {e}")
 
 def setup_info_commands(bot):
     """Setup info-related commands"""
@@ -239,10 +219,10 @@ def setup_info_commands(bot):
     @bot.command(name='info')
     async def info(ctx, *, message=None):
         """Saada olulist teavet info kanalile @everyone pingiga"""
-        global info_channels
-        
-        # Check if info channel is set for this server
+        # Get info channel from database
+        info_channels, _ = await db.get_channels()
         guild_id = str(ctx.guild.id)
+        
         if guild_id not in info_channels:
             await ctx.send("❌ Info kanal pole määratud! Kasuta `!info-set` kanali määramiseks.")
             return
@@ -292,8 +272,6 @@ def setup_info_commands(bot):
     @bot.command(name='info-set')
     async def info_set(ctx, channel: discord.TextChannel = None):
         """Määra kanal, kuhu info sõnumid saadetakse"""
-        global info_channels
-        
         if channel is None:
             # If no channel mentioned, use current channel
             channel = ctx.channel
@@ -303,25 +281,27 @@ def setup_info_commands(bot):
             await ctx.send("❌ Sul on vaja 'Kanalite haldamine' õigust info kanali määramiseks.")
             return
         
-        # Set the info channel for this server
+        # Get current channels and update info channel
+        info_channels, tunniplaan_channels = await db.get_channels()
         guild_id = str(ctx.guild.id)
         info_channels[guild_id] = channel.id
-        await ctx.send(f"✅ Info kanal määratud {channel.mention}")
         
-        # Save to file for persistence (automatic, no user notification)
-        await save_channels()
+        # Save to database
+        await db.save_channels(info_channels, tunniplaan_channels)
+        await ctx.send(f"✅ Info kanal määratud {channel.mention}")
 
     @bot.command(name='info-remove')
     async def info_remove(ctx):
         """Eemalda info kanal"""
-        global info_channels
-        
         # Check if user has permission to manage channels
         if not ctx.author.guild_permissions.manage_channels:
             await ctx.send("❌ Sul on vaja 'Kanalite haldamine' õigust info kanali eemaldamiseks.")
             return
         
+        # Get current channels
+        info_channels, tunniplaan_channels = await db.get_channels()
         guild_id = str(ctx.guild.id)
+        
         if guild_id not in info_channels:
             await ctx.send("❌ Info kanal pole määratud.")
             return
@@ -334,16 +314,14 @@ def setup_info_commands(bot):
         # Clear the info channel for this server
         del info_channels[guild_id]
         
-        # Save updated channels to file
-        await save_channels()
+        # Save updated channels to database
+        await db.save_channels(info_channels, tunniplaan_channels)
         
         await ctx.send(f"✅ Info kanal eemaldatud: {channel_mention}")
 
     @bot.command(name='tunniplaan-set')
     async def tunniplaan_set(ctx, channel: discord.TextChannel = None):
         """Määra kanal, kuhu saadetakse automaatsed tunniplaan sõnumid"""
-        global tunniplaan_channels
-        
         if channel is None:
             # If no channel mentioned, use current channel
             channel = ctx.channel
@@ -353,26 +331,28 @@ def setup_info_commands(bot):
             await ctx.send("❌ Sul on vaja 'Kanalite haldamine' õigust tunniplaan kanali määramiseks.")
             return
         
-        # Set the tunniplaan channel for this server
+        # Get current channels and update tunniplaan channel
+        info_channels, tunniplaan_channels = await db.get_channels()
         guild_id = str(ctx.guild.id)
         tunniplaan_channels[guild_id] = channel.id
+        
+        # Save to database
+        await db.save_channels(info_channels, tunniplaan_channels)
         await ctx.send(f"✅ Tunniplaan kanal määratud {channel.mention}")
         await ctx.send("📅 Automaatsed tunniplaan sõnumid saadetakse igal tööpäeval kell 06:00")
-        
-        # Save to file for persistence (automatic, no user notification)
-        await save_channels()
 
     @bot.command(name='tunniplaan-remove')
     async def tunniplaan_remove(ctx):
         """Eemalda tunniplaan kanal"""
-        global tunniplaan_channels
-        
         # Check if user has permission to manage channels
         if not ctx.author.guild_permissions.manage_channels:
             await ctx.send("❌ Sul on vaja 'Kanalite haldamine' õigust tunniplaan kanali eemaldamiseks.")
             return
         
+        # Get current channels
+        info_channels, tunniplaan_channels = await db.get_channels()
         guild_id = str(ctx.guild.id)
+        
         if guild_id not in tunniplaan_channels:
             await ctx.send("❌ Tunniplaan kanal pole määratud.")
             return
@@ -385,8 +365,8 @@ def setup_info_commands(bot):
         # Clear the tunniplaan channel for this server
         del tunniplaan_channels[guild_id]
         
-        # Save updated channels to file
-        await save_channels()
+        # Save updated channels to database
+        await db.save_channels(info_channels, tunniplaan_channels)
         
         await ctx.send(f"✅ Tunniplaan kanal eemaldatud: {channel_mention}")
 
