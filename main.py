@@ -26,7 +26,7 @@ async def on_ready():
     # Start the daily lesson task
     daily_lessons.start()
 
-@tasks.loop(time=time(6, 0))  # 6:00 AM every day
+@tasks.loop(time=time(3, 0))  # 6:00 AM every day
 async def daily_lessons():
     """Send daily lessons to all configured tunniplaan channels"""
     # Check if it's a weekday (Monday=0, Sunday=6)
