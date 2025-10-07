@@ -49,6 +49,16 @@ class Database:
                 )
             """)
             
+            # User program preferences table
+            await db.execute("""
+                CREATE TABLE IF NOT EXISTS user_programs (
+                    user_id TEXT PRIMARY KEY,
+                    guild_id TEXT NOT NULL,
+                    program_code TEXT NOT NULL,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            
             await db.commit()
     
     async def get_channels(self) -> Tuple[Dict[str, int], Dict[str, int]]:
@@ -181,6 +191,25 @@ class Database:
             print(f"📢 No JSON file found at {json_file_path}, starting with empty database")
         except Exception as e:
             print(f"⚠️ Error migrating from JSON: {e}")
+    
+    async def set_user_program(self, user_id: str, guild_id: str, program_code: str):
+        """Set user's program preference"""
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute("""
+                INSERT OR REPLACE INTO user_programs (user_id, guild_id, program_code, updated_at)
+                VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+            """, (user_id, guild_id, program_code))
+            await db.commit()
+    
+    async def get_user_program(self, user_id: str, guild_id: str) -> Optional[str]:
+        """Get user's program preference"""
+        async with aiosqlite.connect(self.db_path) as db:
+            async with db.execute("""
+                SELECT program_code FROM user_programs 
+                WHERE user_id = ? AND guild_id = ?
+            """, (user_id, guild_id)) as cursor:
+                row = await cursor.fetchone()
+                return row[0] if row else None
 
 # Global database instance
 db = Database()

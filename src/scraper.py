@@ -8,16 +8,23 @@ from typing import List, Dict, Optional
 from bs4 import BeautifulSoup
 
 class VOCOScraper:
-    """Simplified VOCO scraper for ITA25 lessons"""
+    """Simplified VOCO scraper for ITA25 and ITS25 lessons"""
     
-    def __init__(self):
+    # Program codes mapping
+    PROGRAM_CODES = {
+        'ITA25': 2078,  # ITA25
+        'ITS25': 2028   # ITS25 (2028)
+    }
+    
+    def __init__(self, program_code='ITA25'):
         self.base_url = "https://siseveeb.voco.ee/veebivormid/tunniplaan"
-        self.oppegrupp = 2078  # ITA25
+        self.program_code = program_code
+        self.oppegrupp = self.PROGRAM_CODES.get(program_code, 2078)  # Default to ITA25
         self.session = requests.Session()
         self.session.timeout = 30
     
     def get_todays_lessons(self) -> List[Dict]:
-        """Get today's lessons for ITA25"""
+        """Get today's lessons for the selected program"""
         today = datetime.now().strftime('%d.%m.%Y')
         
         try:
@@ -77,7 +84,7 @@ class VOCOScraper:
             return []
     
     def get_lessons_for_date(self, date_str: str) -> List[Dict]:
-        """Get lessons for a specific date for ITA25"""
+        """Get lessons for a specific date for the selected program"""
         try:
             # Handle 'tomorrow' parameter
             if date_str == 'tomorrow':

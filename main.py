@@ -34,7 +34,9 @@ async def daily_lessons():
         return
     
     try:
-        scraper = VOCOScraper()
+        # Note: Scheduled task uses ITA25 by default
+        # Users can use !tunniplaan command for their selected program
+        scraper = VOCOScraper('ITA25')
         lessons = scraper.get_todays_lessons()
         
         if not lessons:
@@ -45,7 +47,7 @@ async def daily_lessons():
             
             # Create embed
             embed = discord.Embed(
-                title="📅 Tänased tunnid (ITA25)",
+                title="📅 Tänased tunnid (ITA25) - Automaatne",
                 color=0x00ff00,
                 timestamp=datetime.now()
             )
