@@ -1,14 +1,16 @@
-# ITA25 Discord Bot
+# ITA25/ITS25 Discord Bot
 
-A Discord bot designed specifically for ITA25 students at VOCO (Tartu Kutsehariduskeskus). The bot provides automatic lesson schedules, info announcements, timetable management, and role management with a fully Estonian interface.
+A Discord bot designed for ITA25 and ITS25 students at VOCO (Tartu Kutsehariduskeskus). The bot provides automatic lesson schedules, info announcements, timetable management, and role management with a fully Estonian interface. Users can choose between ITA25 and ITS25 (2028) programs.
 
 ## 🚀 Features
 
 ### 📅 Timetable Management
-- **Automatic daily lessons**: Posts today's lessons every weekday at 6:00 AM
+- **Automatic daily lessons**: Posts today's lessons every weekday at 6:00 AM (defaults to ITA25)
 - **On-demand timetable**: `!tunniplaan`, `!tunniplaan homme`, `!tunniplaan DD.MM.YYYY`
+- **Program selection**: `!grupp ITA25` or `!grupp ITS25` to choose your program
+- **Server-based preferences**: Each Discord server maintains separate program preferences
 - **Grouped lessons**: Organizes multiple subjects/teachers/rooms for the same time slot
-- **ITA25 specific**: Fetches timetable for ITA25 group (course ID 2078)
+- **Multi-program support**: Supports both ITA25 (course ID 2078) and ITS25 (course ID 2028)
 
 ### 📢 Info Announcements
 - **Info announcements**: Send important messages to designated info channels
@@ -97,6 +99,9 @@ All commands are in Estonian and require appropriate permissions.
 - `!tunniplaan` - Näita tänaseid tunde (Show today's lessons)
 - `!tunniplaan homme` - Näita homme tunde (Show tomorrow's lessons)
 - `!tunniplaan DD.MM.YYYY` - Näita kindla kuupäeva tunde (Show lessons for a specific date)
+- `!grupp ITA25` - Vali ITA25 programm (Select ITA25 program)
+- `!grupp ITS25` - Vali ITS25 programm (Select ITS25 program)
+- `!grupp` - Näita valitud programm (Show selected program)
 - `!tunniplaan-set [#kanal]` - Määra automaatne tunniplaan kanal (Set automatic lesson notifications channel)
 - `!tunniplaan-remove` - Eemalda tunniplaan kanal (Remove lesson notifications channel)
 
@@ -121,6 +126,7 @@ All commands are in Estonian and require appropriate permissions.
 - **Location**: `/app/data/bot_data.db` (Docker) or `./bot_data.db` (local)
 - **Persistence**: Data is stored in an SQLite database and persists across bot restarts and Docker deployments using a named volume (`bot_data`).
 - **Migration**: Automatically migrates from `channels.json` to `bot_data.db` on first run if `channels.json` exists.
+- **Program Preferences**: User program selections (ITA25/ITS25) are stored per Discord server/guild.
 
 ### Environment Variables
 - `DISCORD_TOKEN`: Your Discord bot token.
@@ -178,4 +184,4 @@ For issues, questions, or contributions, please:
 
 ---
 
-**Made with ❤️ by ITA25 student for ITA25 students at VOCO**
+**Made with ❤️ by ITA25 student for ITA25 and ITS25 students at VOCO**

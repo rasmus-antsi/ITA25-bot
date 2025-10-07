@@ -47,6 +47,7 @@ def setup_info_commands(bot):
                 "`!tunniplaan` - Näita tänaseid tunde\n"
                 "`!tunniplaan homme` - Näita homme tunde\n"
                 "`!tunniplaan DD.MM.YYYY` - Näita kindla kuupäeva tunde\n"
+                "`!grupp ITA25/ITS25` - Vali õppeprogramm\n"
                 "`!tunniplaan-set [#kanal]` - Määra automaatne tunniplaan kanal\n"
                 "`!tunniplaan-remove` - Eemalda tunniplaan kanal"
             ),
@@ -89,6 +90,8 @@ def setup_info_commands(bot):
         embed.add_field(
             name="💡 Näited",
             value=(
+                "`!grupp ITA25` - Vali ITA25 programm\n"
+                "`!grupp ITS25` - Vali ITS25 programm\n"
                 "`!tunniplaan` - Tänased tunnid\n"
                 "`!tunniplaan homme` - Homse tunnid\n"
                 "`!tunniplaan 15.01.2025` - Tunnid 15. jaanuaril 2025\n"
@@ -102,30 +105,64 @@ def setup_info_commands(bot):
         
         await ctx.send(embed=embed)
 
+    @bot.command(name='grupp')
+    async def grupp_selection(ctx, program_code=None):
+        """Vali õppeprogramm ITA25 või ITS25"""
+        if program_code is None:
+            # Show current program selection
+            user_program = await db.get_user_program(str(ctx.author.id), str(ctx.guild.id))
+            if user_program:
+                await ctx.send(f"📚 **Sinu valitud programm:** {user_program}")
+            else:
+                await ctx.send("📚 **Programm pole valitud!** Kasuta `!grupp ITA25` või `!grupp ITS25`")
+            return
+        
+        # Validate program code
+        program_code = program_code.upper()
+        if program_code not in ['ITA25', 'ITS25']:
+            await ctx.send("❌ **Vale programm!** Kasuta `ITA25` või `ITS25`")
+            return
+        
+        # Save user's program preference
+        await db.set_user_program(str(ctx.author.id), str(ctx.guild.id), program_code)
+        
+        # Send confirmation
+        program_name = "ITA25" if program_code == 'ITA25' else "ITS25 (2028)"
+        await ctx.send(f"✅ **Programm valitud:** {program_name}\n"
+                      f"📅 Nüüd näitab `!tunniplaan` käsud {program_name} tunde")
+
     @bot.command(name='tunniplaan')
     async def tunniplaan(ctx, *, date_param=None):
-        """Näita tunde ITA25-le. Kasutamine: !tunniplaan, !tunniplaan homme, !tunniplaan 15.01.2025"""
+        """Näita tunde valitud programmile. Kasutamine: !tunniplaan, !tunniplaan homme, !tunniplaan 15.01.2025"""
+        # Get user's program preference
+        user_program = await db.get_user_program(str(ctx.author.id), str(ctx.guild.id))
+        if not user_program:
+            await ctx.send("📚 **Programm pole valitud!** Kasuta `!grupp ITA25` või `!grupp ITS25`")
+            return
+        
         await ctx.send("🔍 Laen tunde...")
         
         try:
-            scraper = VOCOScraper()
+            scraper = VOCOScraper(user_program)
             
             # Determine which date to fetch
+            program_display = "ITA25" if user_program == 'ITA25' else "ITS25 (2028)"
+            
             if date_param is None:
                 # Today
                 lessons = scraper.get_todays_lessons()
-                date_title = "Tänased tunnid (ITA25)"
+                date_title = f"Tänased tunnid ({program_display})"
             elif date_param.lower() == 'homme':
                 # Tomorrow
                 lessons = scraper.get_lessons_for_date('tomorrow')
-                date_title = "Homsed tunnid (ITA25)"
+                date_title = f"Homsed tunnid ({program_display})"
             else:
                 # Specific date
                 try:
                     # Parse date in DD.MM.YYYY format
                     parsed_date = datetime.strptime(date_param, '%d.%m.%Y')
                     lessons = scraper.get_lessons_for_date(parsed_date.strftime('%d.%m.%Y'))
-                    date_title = f"Tunnid {date_param} (ITA25)"
+                    date_title = f"Tunnid {date_param} ({program_display})"
                 except ValueError:
                     await ctx.send("❌ Vale kuupäeva formaat! Kasuta: DD.MM.YYYY (nt. 15.01.2025)")
                     return
