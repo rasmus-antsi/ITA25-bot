@@ -47,9 +47,9 @@ def setup_info_commands(bot):
                 "`!tunniplaan` - Näita tänaseid tunde\n"
                 "`!tunniplaan homme` - Näita homme tunde\n"
                 "`!tunniplaan DD.MM.YYYY` - Näita kindla kuupäeva tunde\n"
-                "`!grupp ITA25/ITS25` - Vali õppeprogramm\n"
-                "`!tunniplaan-set [#kanal]` - Määra automaatne tunniplaan kanal\n"
-                "`!tunniplaan-remove` - Eemalda tunniplaan kanal"
+                "`!grupp ITA25/ITS25` - (Admin) Määra serveri õppeprogramm\n"
+                "`!tunniplaan-set [#kanal]` - (Admin) Määra automaatne tunniplaan kanal\n"
+                "`!tunniplaan-remove` - (Admin) Eemalda tunniplaan kanal"
             ),
             inline=False
         )
@@ -90,8 +90,8 @@ def setup_info_commands(bot):
         embed.add_field(
             name="💡 Näited",
             value=(
-                "`!grupp ITA25` - Vali ITA25 programm\n"
-                "`!grupp ITS25` - Vali ITS25 programm\n"
+                "`!grupp ITA25` - (Admin) Määra ITA25 programm serverile\n"
+                "`!grupp ITS25` - (Admin) Määra ITS25 programm serverile\n"
                 "`!tunniplaan` - Tänased tunnid\n"
                 "`!tunniplaan homme` - Homse tunnid\n"
                 "`!tunniplaan 15.01.2025` - Tunnid 15. jaanuaril 2025\n"
@@ -107,14 +107,20 @@ def setup_info_commands(bot):
 
     @bot.command(name='grupp')
     async def grupp_selection(ctx, program_code=None):
-        """Vali õppeprogramm ITA25 või ITS25"""
+        """Vali serveri õppeprogramm ITA25 või ITS25 (ainult administraatoritele)"""
         if program_code is None:
-            # Show current program selection
-            user_program = await db.get_user_program(str(ctx.author.id), str(ctx.guild.id))
-            if user_program:
-                await ctx.send(f"📚 **Sinu valitud programm:** {user_program}")
+            # Show current program selection for the server
+            server_program = await db.get_server_program(str(ctx.guild.id))
+            if server_program:
+                program_name = "ITA25" if server_program == 'ITA25' else "ITS25 (2028)"
+                await ctx.send(f"📚 **Serveri programm:** {program_name}")
             else:
-                await ctx.send("📚 **Programm pole valitud!** Kasuta `!grupp ITA25` või `!grupp ITS25`")
+                await ctx.send("📚 **Serveri programm pole valitud!** Admin saab kasutada `!grupp ITA25` või `!grupp ITS25`")
+            return
+        
+        # Check if user has permission to manage channels (admin permission)
+        if not ctx.author.guild_permissions.manage_channels:
+            await ctx.send("❌ Sul on vaja 'Kanalite haldamine' õigust serveri programmi määramiseks.")
             return
         
         # Validate program code
@@ -123,30 +129,30 @@ def setup_info_commands(bot):
             await ctx.send("❌ **Vale programm!** Kasuta `ITA25` või `ITS25`")
             return
         
-        # Save user's program preference
-        await db.set_user_program(str(ctx.author.id), str(ctx.guild.id), program_code)
+        # Save server's program preference
+        await db.set_server_program(str(ctx.guild.id), program_code)
         
         # Send confirmation
         program_name = "ITA25" if program_code == 'ITA25' else "ITS25 (2028)"
-        await ctx.send(f"✅ **Programm valitud:** {program_name}\n"
-                      f"📅 Nüüd näitab `!tunniplaan` käsud {program_name} tunde")
+        await ctx.send(f"✅ **Serveri programm määratud:** {program_name}\n"
+                      f"📅 Kõik `!tunniplaan` käsud ja automaatsed teated näitavad nüüd {program_name} tunde")
 
     @bot.command(name='tunniplaan')
     async def tunniplaan(ctx, *, date_param=None):
-        """Näita tunde valitud programmile. Kasutamine: !tunniplaan, !tunniplaan homme, !tunniplaan 15.01.2025"""
-        # Get user's program preference
-        user_program = await db.get_user_program(str(ctx.author.id), str(ctx.guild.id))
-        if not user_program:
-            await ctx.send("📚 **Programm pole valitud!** Kasuta `!grupp ITA25` või `!grupp ITS25`")
+        """Näita tunde serveri programmile. Kasutamine: !tunniplaan, !tunniplaan homme, !tunniplaan 15.01.2025"""
+        # Get server's program preference
+        server_program = await db.get_server_program(str(ctx.guild.id))
+        if not server_program:
+            await ctx.send("📚 **Serveri programm pole valitud!** Admin saab kasutada `!grupp ITA25` või `!grupp ITS25`")
             return
         
         await ctx.send("🔍 Laen tunde...")
         
         try:
-            scraper = VOCOScraper(user_program)
+            scraper = VOCOScraper(server_program)
             
             # Determine which date to fetch
-            program_display = "ITA25" if user_program == 'ITA25' else "ITS25 (2028)"
+            program_display = "ITA25" if server_program == 'ITA25' else "ITS25 (2028)"
             
             if date_param is None:
                 # Today
