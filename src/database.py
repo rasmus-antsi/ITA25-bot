@@ -49,11 +49,20 @@ class Database:
                 )
             """)
             
-            # User program preferences table
+            # User program preferences table (deprecated - kept for migration)
             await db.execute("""
                 CREATE TABLE IF NOT EXISTS user_programs (
                     user_id TEXT PRIMARY KEY,
                     guild_id TEXT NOT NULL,
+                    program_code TEXT NOT NULL,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            
+            # Server program preferences table
+            await db.execute("""
+                CREATE TABLE IF NOT EXISTS server_programs (
+                    guild_id TEXT PRIMARY KEY,
                     program_code TEXT NOT NULL,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
@@ -202,12 +211,31 @@ class Database:
             await db.commit()
     
     async def get_user_program(self, user_id: str, guild_id: str) -> Optional[str]:
-        """Get user's program preference"""
+        """Get user's program preference (deprecated - use get_server_program)"""
         async with aiosqlite.connect(self.db_path) as db:
             async with db.execute("""
                 SELECT program_code FROM user_programs 
                 WHERE user_id = ? AND guild_id = ?
             """, (user_id, guild_id)) as cursor:
+                row = await cursor.fetchone()
+                return row[0] if row else None
+    
+    async def set_server_program(self, guild_id: str, program_code: str):
+        """Set server's program preference"""
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute("""
+                INSERT OR REPLACE INTO server_programs (guild_id, program_code, updated_at)
+                VALUES (?, ?, CURRENT_TIMESTAMP)
+            """, (guild_id, program_code))
+            await db.commit()
+    
+    async def get_server_program(self, guild_id: str) -> Optional[str]:
+        """Get server's program preference"""
+        async with aiosqlite.connect(self.db_path) as db:
+            async with db.execute("""
+                SELECT program_code FROM server_programs 
+                WHERE guild_id = ?
+            """, (guild_id,)) as cursor:
                 row = await cursor.fetchone()
                 return row[0] if row else None
 
