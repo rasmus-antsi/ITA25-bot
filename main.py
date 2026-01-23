@@ -29,7 +29,7 @@ async def on_ready():
 
 @tasks.loop(time=time(3, 0))  # 6:00 AM every day
 async def daily_lessons():
-    """Send daily lessons to all servers based on their program settings"""
+    """Send daily lessons to all servers (ITA25 only)"""
     # Check if it's a weekday (Monday=0, Sunday=6)
     if datetime.now().weekday() >= 5:  # Saturday or Sunday
         return
@@ -47,18 +47,9 @@ async def daily_lessons():
                     print(f"⚠️ Channel {channel_id} not found for guild {guild_id}")
                     continue
                 
-                # Get server's program preference
-                server_program = await db.get_server_program(guild_id)
-                if not server_program:
-                    # Default to ITA25 if not set
-                    server_program = 'ITA25'
-                    print(f"📢 No program set for {channel.guild.name}, defaulting to ITA25")
-                
-                # Get lessons for this server's program
-                scraper = VOCOScraper(server_program)
+                # Get lessons for ITA25
+                scraper = VOCOScraper()
                 lessons = scraper.get_todays_lessons()
-                
-                program_display = "ITA25" if server_program == 'ITA25' else "ITS25 (2028)"
                 
                 if not lessons:
                     message = "📅 **Täna tunde ei ole** - Vaba päev! 🎉"
@@ -70,7 +61,7 @@ async def daily_lessons():
                     
                     # Create embed
                     embed = discord.Embed(
-                        title=f"📅 Tänased tunnid ({program_display}) - Automaatne",
+                        title="📅 Tänased tunnid (ITA25) - Automaatne",
                         color=0x00ff00,
                         timestamp=datetime.now()
                     )
@@ -135,7 +126,7 @@ async def daily_lessons():
                     
                     embed.set_footer(text=f"Kokku {len(lessons)} tundi")
                     await channel.send(embed=embed)
-                    print(f"📅 Daily lessons sent to {channel.guild.name}#{channel.name} ({program_display})")
+                    print(f"📅 Daily lessons sent to {channel.guild.name}#{channel.name} (ITA25)")
                     
             except Exception as e:
                 print(f"⚠️ Error sending to guild {guild_id}: {e}")

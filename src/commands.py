@@ -23,16 +23,35 @@ async def init_database():
 def setup_info_commands(bot):
     """Setup info-related commands"""
     
+    # Blacklisted user IDs (hardcoded list - edit directly in code to manage)
+    BLACKLISTED_USER_IDS = [
+        # Add user IDs here as strings
+        # Example: "123456789012345678"
+        "699616900233035846"
+    ]
+    
+    def is_blacklisted(user_id: str) -> bool:
+        """Check if a user is blacklisted"""
+        return user_id in BLACKLISTED_USER_IDS
+    
     # Remove the built-in help command
     bot.remove_command('help')
     
     @bot.command(name='hello')
     async def hello(ctx):
+        # Check blacklist
+        if is_blacklisted(str(ctx.author.id)):
+            return
+        
         await ctx.send("Tere! Olen elus Dockeris 🐳")
 
     @bot.command(name='help')
     async def help_command(ctx):
         """Näita kõiki saadaolevaid käske"""
+        # Check blacklist
+        if is_blacklisted(str(ctx.author.id)):
+            return
+        
         embed = discord.Embed(
             title="🤖 ITA25 Bot - Käsud",
             description="Siin on kõik saadaolevad käsud:",
@@ -47,7 +66,6 @@ def setup_info_commands(bot):
                 "`!tunniplaan` - Näita tänaseid tunde\n"
                 "`!tunniplaan homme` - Näita homme tunde\n"
                 "`!tunniplaan DD.MM.YYYY` - Näita kindla kuupäeva tunde\n"
-                "`!grupp ITA25/ITS25` - (Admin) Määra serveri õppeprogramm\n"
                 "`!tunniplaan-set [#kanal]` - (Admin) Määra automaatne tunniplaan kanal\n"
                 "`!tunniplaan-remove` - (Admin) Eemalda tunniplaan kanal"
             ),
@@ -90,8 +108,6 @@ def setup_info_commands(bot):
         embed.add_field(
             name="💡 Näited",
             value=(
-                "`!grupp ITA25` - (Admin) Määra ITA25 programm serverile\n"
-                "`!grupp ITS25` - (Admin) Määra ITS25 programm serverile\n"
                 "`!tunniplaan` - Tänased tunnid\n"
                 "`!tunniplaan homme` - Homse tunnid\n"
                 "`!tunniplaan 15.01.2025` - Tunnid 15. jaanuaril 2025\n"
@@ -105,70 +121,34 @@ def setup_info_commands(bot):
         
         await ctx.send(embed=embed)
 
-    @bot.command(name='grupp')
-    async def grupp_selection(ctx, program_code=None):
-        """Vali serveri õppeprogramm ITA25 või ITS25 (ainult administraatoritele)"""
-        if program_code is None:
-            # Show current program selection for the server
-            server_program = await db.get_server_program(str(ctx.guild.id))
-            if server_program:
-                program_name = "ITA25" if server_program == 'ITA25' else "ITS25 (2028)"
-                await ctx.send(f"📚 **Serveri programm:** {program_name}")
-            else:
-                await ctx.send("📚 **Serveri programm pole valitud!** Admin saab kasutada `!grupp ITA25` või `!grupp ITS25`")
-            return
-        
-        # Check if user has permission to manage channels (admin permission)
-        if not ctx.author.guild_permissions.manage_channels:
-            await ctx.send("❌ Sul on vaja 'Kanalite haldamine' õigust serveri programmi määramiseks.")
-            return
-        
-        # Validate program code
-        program_code = program_code.upper()
-        if program_code not in ['ITA25', 'ITS25']:
-            await ctx.send("❌ **Vale programm!** Kasuta `ITA25` või `ITS25`")
-            return
-        
-        # Save server's program preference
-        await db.set_server_program(str(ctx.guild.id), program_code)
-        
-        # Send confirmation
-        program_name = "ITA25" if program_code == 'ITA25' else "ITS25 (2028)"
-        await ctx.send(f"✅ **Serveri programm määratud:** {program_name}\n"
-                      f"📅 Kõik `!tunniplaan` käsud ja automaatsed teated näitavad nüüd {program_name} tunde")
-
     @bot.command(name='tunniplaan')
     async def tunniplaan(ctx, *, date_param=None):
-        """Näita tunde serveri programmile. Kasutamine: !tunniplaan, !tunniplaan homme, !tunniplaan 15.01.2025"""
-        # Get server's program preference
-        server_program = await db.get_server_program(str(ctx.guild.id))
-        if not server_program:
-            await ctx.send("📚 **Serveri programm pole valitud!** Admin saab kasutada `!grupp ITA25` või `!grupp ITS25`")
+        """Näita tunde ITA25-le. Kasutamine: !tunniplaan, !tunniplaan homme, !tunniplaan 15.01.2025"""
+        # Check blacklist
+        if is_blacklisted(str(ctx.author.id)):
             return
         
         await ctx.send("🔍 Laen tunde...")
         
         try:
-            scraper = VOCOScraper(server_program)
+            scraper = VOCOScraper()
             
             # Determine which date to fetch
-            program_display = "ITA25" if server_program == 'ITA25' else "ITS25 (2028)"
-            
             if date_param is None:
                 # Today
                 lessons = scraper.get_todays_lessons()
-                date_title = f"Tänased tunnid ({program_display})"
+                date_title = "Tänased tunnid (ITA25)"
             elif date_param.lower() == 'homme':
                 # Tomorrow
                 lessons = scraper.get_lessons_for_date('tomorrow')
-                date_title = f"Homsed tunnid ({program_display})"
+                date_title = "Homsed tunnid (ITA25)"
             else:
                 # Specific date
                 try:
                     # Parse date in DD.MM.YYYY format
                     parsed_date = datetime.strptime(date_param, '%d.%m.%Y')
                     lessons = scraper.get_lessons_for_date(parsed_date.strftime('%d.%m.%Y'))
-                    date_title = f"Tunnid {date_param} ({program_display})"
+                    date_title = f"Tunnid {date_param} (ITA25)"
                 except ValueError:
                     await ctx.send("❌ Vale kuupäeva formaat! Kasuta: DD.MM.YYYY (nt. 15.01.2025)")
                     return
@@ -262,6 +242,10 @@ def setup_info_commands(bot):
     @bot.command(name='info')
     async def info(ctx, *, message=None):
         """Saada olulist teavet info kanalile @everyone pingiga"""
+        # Check blacklist
+        if is_blacklisted(str(ctx.author.id)):
+            return
+        
         # Get info channel from database
         info_channels, _ = await db.get_channels()
         guild_id = str(ctx.guild.id)
@@ -315,6 +299,10 @@ def setup_info_commands(bot):
     @bot.command(name='info-set')
     async def info_set(ctx, channel: discord.TextChannel = None):
         """Määra kanal, kuhu info sõnumid saadetakse"""
+        # Check blacklist
+        if is_blacklisted(str(ctx.author.id)):
+            return
+        
         if channel is None:
             # If no channel mentioned, use current channel
             channel = ctx.channel
@@ -336,6 +324,10 @@ def setup_info_commands(bot):
     @bot.command(name='info-remove')
     async def info_remove(ctx):
         """Eemalda info kanal"""
+        # Check blacklist
+        if is_blacklisted(str(ctx.author.id)):
+            return
+        
         # Check if user has permission to manage channels
         if not ctx.author.guild_permissions.manage_channels:
             await ctx.send("❌ Sul on vaja 'Kanalite haldamine' õigust info kanali eemaldamiseks.")
@@ -365,6 +357,10 @@ def setup_info_commands(bot):
     @bot.command(name='tunniplaan-set')
     async def tunniplaan_set(ctx, channel: discord.TextChannel = None):
         """Määra kanal, kuhu saadetakse automaatsed tunniplaan sõnumid"""
+        # Check blacklist
+        if is_blacklisted(str(ctx.author.id)):
+            return
+        
         if channel is None:
             # If no channel mentioned, use current channel
             channel = ctx.channel
@@ -387,6 +383,10 @@ def setup_info_commands(bot):
     @bot.command(name='tunniplaan-remove')
     async def tunniplaan_remove(ctx):
         """Eemalda tunniplaan kanal"""
+        # Check blacklist
+        if is_blacklisted(str(ctx.author.id)):
+            return
+        
         # Check if user has permission to manage channels
         if not ctx.author.guild_permissions.manage_channels:
             await ctx.send("❌ Sul on vaja 'Kanalite haldamine' õigust tunniplaan kanali eemaldamiseks.")
@@ -416,6 +416,10 @@ def setup_info_commands(bot):
     @bot.command(name='vota-rollid')
     async def vota_rollid(ctx, *, args):
         """Loo rollide valimise sõnum. Kasutamine: !vota-rollid @roll1 🎭1 @roll2 🎭2 True"""
+        # Check blacklist
+        if is_blacklisted(str(ctx.author.id)):
+            return
+        
         # Check if user has permission to manage roles
         if not ctx.author.guild_permissions.manage_roles:
             await ctx.send("❌ Sul on vaja 'Rollide haldamine' õigust rollide valimise sõnumi loomiseks.")
