@@ -2,8 +2,12 @@ import discord
 import os
 import re
 from datetime import datetime
+from dotenv import load_dotenv
 from .scraper import VOCOScraper
 from .database import db
+
+# Load environment variables
+load_dotenv()
 
 async def init_database():
     """Initialize the database and migrate from JSON if needed"""
@@ -23,11 +27,12 @@ async def init_database():
 def setup_info_commands(bot):
     """Setup info-related commands"""
     
-    # Blacklisted user IDs (hardcoded list - edit directly in code to manage)
+    # Blacklisted user IDs from environment variable (comma-separated)
+    blacklist_env = os.getenv("BLACKLISTED_USER_IDS", "")
     BLACKLISTED_USER_IDS = [
-        # Add user IDs here as strings
-        # Example: "123456789012345678"
-        "699616900233035846"
+        user_id.strip() 
+        for user_id in blacklist_env.split(",") 
+        if user_id.strip()
     ]
     
     def is_blacklisted(user_id: str) -> bool:

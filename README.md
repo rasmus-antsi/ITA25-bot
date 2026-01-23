@@ -31,7 +31,7 @@ A Discord bot designed specifically for ITA25 students at VOCO (Tartu Kutseharid
 ## 🛠️ Installation
 
 ### Prerequisites
-- Python 3.8+ or Docker
+- Python 3.11+ (recommended: 3.11–3.13) or Docker
 - Discord Bot Token (from [Discord Developer Portal](https://discord.com/developers/applications))
 - Discord server with appropriate permissions
 
@@ -48,6 +48,8 @@ A Discord bot designed specifically for ITA25 students at VOCO (Tartu Kutseharid
    python3 -m venv venv
    source venv/bin/activate  # On Windows: venv\Scripts\activate
    ```
+   
+   **Note:** `discord.py` currently breaks on Python 3.14 because the standard library module `audioop` was removed. If you see `ModuleNotFoundError: No module named 'audioop'`, create the venv with Python 3.13 (or 3.12/3.11).
 
 3. **Install dependencies:**
    ```bash
@@ -126,6 +128,7 @@ All commands are in Estonian and require appropriate permissions.
 - `DISCORD_TOKEN`: Your Discord bot token.
 - `DATA_DIR`: Directory for persistent data (default: `/app/data` in Docker, `.` locally).
 - `DB_PATH`: Full path to the SQLite database file (default: `/app/data/bot_data.db` in Docker, `./bot_data.db` locally).
+- `BLACKLISTED_USER_IDS`: Comma-separated list of Discord user IDs to blacklist from using bot commands (optional, e.g., `"123456789012345678,987654321098765432"`).
 
 ### Permissions Required
 - **Bot permissions**: Send Messages, Embed Links, Manage Messages, Add Reactions, Manage Roles
