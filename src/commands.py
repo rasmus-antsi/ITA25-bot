@@ -214,7 +214,7 @@ def setup_info_commands(bot):
                         if room and room != 'Tundmatu ruum':
                             lesson_info += f" - 🏫 {room}"
                         if j < len(teachers) - 1:
-                            lesson_info += "\n\n"
+                            lesson_info += "\n"
                 else:
                     # Single subject/teacher/room (original format)
                     subject = lesson.get('subject', 'Tundmatu aine')
@@ -233,7 +233,7 @@ def setup_info_commands(bot):
                 
                 embed.add_field(
                     name=f"Tund {i+1} - ⏰ {time}",
-                    value=lesson_info,
+                    value=lesson_info + "\n\u200b",
                     inline=False
                 )
             
