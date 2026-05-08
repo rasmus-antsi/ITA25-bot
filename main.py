@@ -101,7 +101,7 @@ async def daily_lessons():
                                 if room and room != 'Tundmatu ruum':
                                     lesson_info += f" - 🏫 {room}"
                                 if j < len(teachers) - 1:
-                                    lesson_info += "\n\n"
+                                    lesson_info += "\n"
                         else:
                             # Single subject/teacher/room (original format)
                             subject = lesson.get('subject', 'Tundmatu aine')
@@ -120,7 +120,7 @@ async def daily_lessons():
                         
                         embed.add_field(
                             name=f"Tund {i+1} - ⏰ {time_str}",
-                            value=lesson_info,
+                            value=lesson_info + "\n\u200b",
                             inline=False
                         )
                     
