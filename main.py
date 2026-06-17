@@ -49,7 +49,7 @@ async def daily_lessons():
                 
                 # Get lessons for ITA25
                 scraper = VOCOScraper()
-                lessons = scraper.get_todays_lessons()
+                lessons = await asyncio.to_thread(scraper.get_todays_lessons)
                 
                 if not lessons:
                     message = "📅 **Täna tunde ei ole** - Vaba päev! 🎉"

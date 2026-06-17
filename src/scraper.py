@@ -10,11 +10,20 @@ from bs4 import BeautifulSoup
 class VOCOScraper:
     """Simplified VOCO scraper for ITA25 lessons"""
     
+    # Per-request timeout (connect, read). Note: requests ignores a timeout set
+    # on the Session object, so it must be passed to every .get() call.
+    REQUEST_TIMEOUT = (10, 20)
+
     def __init__(self):
         self.base_url = "https://siseveeb.voco.ee/veebivormid/tunniplaan"
         self.oppegrupp = 2078  # ITA25
         self.session = requests.Session()
-        self.session.timeout = 30
+        self.session.headers.update({
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                "(KHTML, like Gecko) Chrome/124.0 Safari/537.36"
+            )
+        })
     
     def get_todays_lessons(self) -> List[Dict]:
         """Get today's lessons for ITA25"""
@@ -28,14 +37,14 @@ class VOCOScraper:
                 "nadal": today,
                 "no_export": 1
             }
-            
-            response = self.session.get(url, params=params)
+
+            response = self.session.get(url, params=params, timeout=self.REQUEST_TIMEOUT)
             response.raise_for_status()
-            
+
             # Parse the HTML
             soup = BeautifulSoup(response.text, 'html.parser')
             events = self._parse_events(soup)
-            
+
             # Filter for today's lessons and remove "Tegevuspäev"
             today_lessons = []
             seen_lessons = set()
@@ -91,14 +100,14 @@ class VOCOScraper:
                 "nadal": date_str,
                 "no_export": 1
             }
-            
-            response = self.session.get(url, params=params)
+
+            response = self.session.get(url, params=params, timeout=self.REQUEST_TIMEOUT)
             response.raise_for_status()
-            
+
             # Parse the HTML
             soup = BeautifulSoup(response.text, 'html.parser')
             events = self._parse_events(soup)
-            
+
             # Convert date_str to ISO format for comparison
             if date_str == 'tomorrow':
                 target_date_iso = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')

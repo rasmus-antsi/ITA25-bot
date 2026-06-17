@@ -1,6 +1,7 @@
 import discord
 import os
 import re
+import asyncio
 from datetime import datetime
 from dotenv import load_dotenv
 from .scraper import VOCOScraper
@@ -141,18 +142,18 @@ def setup_info_commands(bot):
             # Determine which date to fetch
             if date_param is None:
                 # Today
-                lessons = scraper.get_todays_lessons()
+                lessons = await asyncio.to_thread(scraper.get_todays_lessons)
                 date_title = "Tänased tunnid (ITA25)"
             elif date_param.lower() == 'homme':
                 # Tomorrow
-                lessons = scraper.get_lessons_for_date('tomorrow')
+                lessons = await asyncio.to_thread(scraper.get_lessons_for_date, 'tomorrow')
                 date_title = "Homsed tunnid (ITA25)"
             else:
                 # Specific date
                 try:
                     # Parse date in DD.MM.YYYY format
                     parsed_date = datetime.strptime(date_param, '%d.%m.%Y')
-                    lessons = scraper.get_lessons_for_date(parsed_date.strftime('%d.%m.%Y'))
+                    lessons = await asyncio.to_thread(scraper.get_lessons_for_date, parsed_date.strftime('%d.%m.%Y'))
                     date_title = f"Tunnid {date_param} (ITA25)"
                 except ValueError:
                     await ctx.send("❌ Vale kuupäeva formaat! Kasuta: DD.MM.YYYY (nt. 15.01.2025)")
